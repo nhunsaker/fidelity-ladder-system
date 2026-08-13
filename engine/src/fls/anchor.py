@@ -18,6 +18,14 @@ from pydantic import BaseModel, Field, field_validator
 _ANCHOR_BLOCK = re.compile(r"```anchor\s*\n(.*?)\n```", re.DOTALL)
 
 
+def guardrails_prose(anchor_text: str) -> str:
+    """The human header of ANCHOR.md (north star + non-negotiables) — everything before the
+    machine block. Injected into feeder ideation prompts (P4) so the guardrails shape ideas, not
+    just gate them, and passed to the admission summary. Same slice adjudicator._anchor_summary uses.
+    """
+    return anchor_text.split("```anchor")[0].strip()
+
+
 class Verdict(StrEnum):
     admit = "admit"
     dock = "dock"
@@ -54,6 +62,16 @@ class Adjudicator(BaseModel):
         return v
 
 
+class BuilderConfig(BaseModel):
+    """P7 — how builder work is fulfilled. Default keeps the historical behaviour (metered
+    Anthropic API), so an ANCHOR without a `builder:` block parses and behaves as before."""
+    backend: str = "api"                 # api | skill-server
+    shadow_model: str = "claude-haiku-4-5-20251001"  # list-price anchor for the subscription lane
+    fallback: str = "none"               # api | none
+    fallback_budget_usd: float = 0.0     # hard ceiling on fallback spend per run
+    fallback_pin: str = "per-run"        # per-run = once fallen back, stay fallen back
+
+
 class Funnel(BaseModel):
     auto_build: int
     interactive_demos: int
@@ -78,10 +96,23 @@ class DemoteTrigger(BaseModel):
     action: str
 
 
+class FeederParams(BaseModel):
+    """P4 — the studio-brainstorm feeder's ANCHOR-set knobs. The feeder is fully governed by
+    these; it holds no policy of its own."""
+    scope: str = ""
+    guardrails_into_prompt: bool = True   # non-negotiables shape ideation, not just the gate
+    cost_envelope_usd: float = 5.00       # per feeder run (bounds the shadow cost on the sub lane)
+    volume_cap: int = 5                   # top-N ideas filed per run
+    cadence: str = "manual"
+    model_tier: str = "economy"
+    context_cap_tokens: int = 30000       # what the workspace checkout may feed the prompt
+
+
 class Anchor(BaseModel):
     version: int
     mode: str
     adjudicator: Adjudicator
+    builder: BuilderConfig = Field(default_factory=BuilderConfig)
     idea_sources: list[dict]
     funnel: Funnel
     rungs: dict[str, RungPolicy]
@@ -100,6 +131,13 @@ class Anchor(BaseModel):
 
     def rung(self, key: str) -> RungPolicy:
         return self.rungs[key]
+
+    def feeder(self) -> FeederParams:
+        """The studio-brainstorm feeder's params (P4), or defaults if no feeder source declared."""
+        for src in self.idea_sources:
+            if src.get("kind") == "feeder":
+                return FeederParams.model_validate(src.get("params", {}))
+        return FeederParams()
 
     def can_tighten(self, current: Dial, proposed: Dial) -> bool:
         """A rung/expedition may only move a dial toward tighter (or equal), never looser."""

@@ -37,6 +37,13 @@ adjudicator:
     max_calls: 2
   output_contract: [verdict, reasoning, cost]   # verdict ∈ {admit, dock, needs-human}
 
+builder:                        # who fulfils builder work (specs/wireframes/demos/MVP) — P7
+  backend: skill-server         # skill-server = Temporal/LangChain pass-back over local Claude CLI (no API key, subscription-funded)
+  shadow_model: claude-haiku-4-5-20251001   # list-price model the subscription lane is normalized against
+  fallback: api                 # api | none — when the skill-server is down, may we spend metered Anthropic?
+  fallback_budget_usd: 0.50     # hard ceiling on fallback (api) spend per run; refuses to fire past it
+  fallback_pin: per-run         # once a run falls back to api it STAYS on api (no flapping mid-climb)
+
 idea_sources:
   - kind: manual              # issue form — the default door
   - kind: feeder              # the studio brainstorm (P4)
