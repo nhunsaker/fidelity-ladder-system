@@ -1,0 +1,60 @@
+"""Rung 3 — interactive throwaway demo + scripted walkthrough (dial: auto-advance-with-audit).
+
+Builder assembles a clickable throwaway prototype (self-contained HTML/JS, fake data, no prod
+code) from the winning spec + picked wireframe. A Walkthrough then drives it against the
+acceptance criteria — the real impl is Playwright (reuse the sorb-test-ui harness pattern); a
+stub returns canned results for tests. A failed walkthrough is a design signal -> descend.
+
+Demos persist to expeditions/<id>/demo/index.html and are served at
+stage.../preview/<id> in P2/P3.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Protocol
+
+from fls.adjudicator import Idea
+from fls.llm import Call
+from fls.rung1 import Builder
+
+_DEMO_SYS = (
+    "You build a SELF-CONTAINED interactive HTML demo (inline CSS/JS, fake data, no build step) "
+    "that lets a reviewer click through the flow the spec describes. Throwaway quality is fine — "
+    "it exists to test direction, not to ship. Return ONLY the HTML document."
+)
+
+
+@dataclass
+class WalkthroughResult:
+    passed: bool
+    detail: str = ""
+    steps: list[str] = field(default_factory=list)
+
+
+class Walkthrough(Protocol):
+    def run(self, demo_path: str, acceptance: str) -> WalkthroughResult: ...
+
+
+@dataclass
+class Rung3Result:
+    demo_html: str
+    walkthrough: WalkthroughResult
+    calls: list[Call] = field(default_factory=list)
+
+    @property
+    def cost_usd(self) -> float:
+        return round(sum(c.usd for c in self.calls), 4)
+
+
+def run_rung3(idea: Idea, spec: str, wireframe: str, builder: Builder, walkthrough: Walkthrough,
+              artifact_dir: str, expedition: int, max_tokens: int = 1500) -> Rung3Result:
+    html, call = builder.complete(
+        f"SPEC:\n{spec}\n\nPICKED WIREFRAME:\n{wireframe[:1500]}\n\nBuild the interactive demo.",
+        max_tokens=max_tokens, system=_DEMO_SYS,
+    )
+    d = Path(artifact_dir) / str(expedition) / "demo"
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "index.html").write_text(html, encoding="utf-8")
+    wt = walkthrough.run(str(d / "index.html"), idea.success)
+    return Rung3Result(html, wt, [call])
