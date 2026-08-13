@@ -1,5 +1,4 @@
 """P1: rung 2 wireframe fan-out + suggested ranking (stubbed builder/judge, zero spend)."""
-from pathlib import Path
 
 from fls.adjudicator import Idea
 from fls.llm import Call

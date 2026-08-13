@@ -5,7 +5,7 @@ from pathlib import Path
 
 from fls.adjudicator import Idea
 from fls.anchor import Anchor
-from fls.controller import run_batch, on_idea
+from fls.controller import on_idea, run_batch
 from fls.expedition import AWAIT_PICK, DOCKED, PARKED
 from fls.funnel import RUNG_FLAG, RUNG_WIRE
 from fls.ledger import Ledger

@@ -1,10 +1,9 @@
 """P1: funnel lane assignment (pure, no spend) + rung 1 flow (stubbed builder/judge)."""
-import json
 from pathlib import Path
 
-from fls.anchor import Anchor
 from fls.adjudicator import Idea
-from fls.funnel import RankedIdea, assign_lanes, est_batch_cost, RUNG_FLAG, RUNG_DEMO, RUNG_WIRE
+from fls.anchor import Anchor
+from fls.funnel import RUNG_DEMO, RUNG_FLAG, RUNG_WIRE, RankedIdea, assign_lanes, est_batch_cost
 from fls.llm import Call
 from fls.rung1 import run_rung1
 

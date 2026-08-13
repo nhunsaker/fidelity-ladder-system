@@ -1,8 +1,6 @@
 """P0 verify: the demo ANCHOR.md parses and validates, with altitude + cost fields present."""
 from pathlib import Path
 
-import pytest
-
 from fls.anchor import Anchor, Dial
 
 ANCHOR_PATH = Path(__file__).resolve().parents[2] / "ANCHOR.md"

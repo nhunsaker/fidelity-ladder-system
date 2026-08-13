@@ -2,6 +2,8 @@
 import json
 from pathlib import Path
 
+import pytest
+
 from fls.adjudicator import Idea, adjudicate
 from fls.anchor import Anchor, Dial, Verdict
 from fls.ledger import Decision, Ledger
@@ -61,8 +63,8 @@ def test_ledger_agreement_and_demote(tmp_path):
     for i in range(10):
         human = "admit" if i >= 4 else "dock"
         led.record(Decision(1, "1-spec", "admit", human, 0.001, 10, 5))
-    assert led.agreement_rate("1-spec", 10) == 0.6
-    assert led.cost_per_verdict("1-spec") == 0.001
+    assert led.agreement_rate("1-spec", 10) == pytest.approx(0.6)
+    assert led.cost_per_verdict("1-spec") == pytest.approx(0.001)
     # current dial human-picks -> demote one step tighter (propose-only)
     demoted = led.demote_check("1-spec", ANCHOR, Dial.human_picks)
     assert demoted == Dial.propose_only
