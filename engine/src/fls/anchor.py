@@ -9,7 +9,7 @@ Tighten-only cascade is enforced elsewhere (harness), but the model exposes the 
 from __future__ import annotations
 
 import re
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 
 import yaml
@@ -18,13 +18,13 @@ from pydantic import BaseModel, Field, field_validator
 _ANCHOR_BLOCK = re.compile(r"```anchor\s*\n(.*?)\n```", re.DOTALL)
 
 
-class Verdict(str, Enum):
+class Verdict(StrEnum):
     admit = "admit"
     dock = "dock"
     needs_human = "needs-human"
 
 
-class Dial(str, Enum):
+class Dial(StrEnum):
     propose_only = "propose-only"
     human_picks = "human-picks"
     auto_advance = "auto-advance-with-audit"
@@ -90,7 +90,7 @@ class Anchor(BaseModel):
     altitude_allowed: list[str] = Field(min_length=1)
 
     @classmethod
-    def load(cls, path: str | Path) -> "Anchor":
+    def load(cls, path: str | Path) -> Anchor:
         text = Path(path).read_text(encoding="utf-8")
         m = _ANCHOR_BLOCK.search(text)
         if not m:

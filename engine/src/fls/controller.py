@@ -15,8 +15,8 @@ import re
 
 from fls.adjudicator import Idea, Judge, adjudicate
 from fls.anchor import Anchor, Verdict
-from fls.expedition import (AWAIT_PICK, CLIMBING, DOCKED, NEEDS_HUMAN, PARKED, Expedition)
-from fls.funnel import RankedIdea, assign_lanes, RUNG_SPEC, RUNG_WIRE
+from fls.expedition import AWAIT_PICK, DOCKED, NEEDS_HUMAN, PARKED, Expedition
+from fls.funnel import RUNG_SPEC, RUNG_WIRE, RankedIdea, assign_lanes
 from fls.ledger import Decision, Ledger
 from fls.rung1 import Builder, run_rung1
 from fls.rung2 import run_rung2
@@ -87,16 +87,19 @@ def run_batch(ideas: list[Idea], anchor: Anchor, anchor_text: str, judge: Judge,
         # rung 1: spec + reflection
         if e.target_rung >= RUNG_SPEC:
             r1 = run_rung1(idea, anchor, builder, judge)
-            e.add(r1.calls); e.spec = r1.revised_top
+            e.add(r1.calls)
+            e.spec = r1.revised_top
             if e.spent_usd > ceiling:
                 e.status, e.reason = PARKED, f"budget ceiling ${ceiling} hit at rung 1"
-                exps[idea.number] = e; continue
+                exps[idea.number] = e
+                continue
             e.rung = RUNG_SPEC
 
         # rung 2: wireframe fan-out (human pick pending)
         if e.target_rung >= RUNG_WIRE:
             r2 = run_rung2(idea, e.spec or idea.intent, builder, judge)
-            e.add(r2.calls); e.wireframes = r2.wireframes
+            e.add(r2.calls)
+            e.wireframes = r2.wireframes
             r2.persist(expeditions_dir, idea.number)
             if e.spent_usd > ceiling:
                 e.status, e.reason = PARKED, f"budget ceiling ${ceiling} hit at rung 2"

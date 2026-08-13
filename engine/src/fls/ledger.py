@@ -14,7 +14,7 @@ from collections import deque
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-from fls.anchor import Anchor, Dial, DIAL_ORDER
+from fls.anchor import DIAL_ORDER, Anchor, Dial
 
 
 @dataclass
@@ -44,9 +44,9 @@ class Ledger:
         with open(self.path, "a", encoding="utf-8") as f:
             f.write(json.dumps(asdict(d)) + "\n")
 
-    def load(self) -> "Ledger":
+    def load(self) -> Ledger:
         if Path(self.path).exists():
-            self.rows = [Decision(**json.loads(l)) for l in Path(self.path).read_text().splitlines() if l]
+            self.rows = [Decision(**json.loads(line)) for line in Path(self.path).read_text().splitlines() if line]
         return self
 
     def agreement_rate(self, rung: str, window: int) -> float | None:

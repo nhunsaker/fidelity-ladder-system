@@ -22,10 +22,10 @@ def _keychain(service: str) -> str | None:
     try:
         out = subprocess.run(
             ["security", "find-generic-password", "-s", service, "-w"],
-            capture_output=True, text=True, timeout=5,
+            capture_output=True, text=True, timeout=5, check=False,
         )
         return out.stdout.strip() or None
-    except Exception:
+    except (OSError, subprocess.SubprocessError):
         return None
 
 
