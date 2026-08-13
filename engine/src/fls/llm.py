@@ -35,12 +35,22 @@ def anthropic_key() -> str | None:
 
 @dataclass
 class Call:
-    """One model call's accounting — the ledger row's cost half."""
+    """One model call's accounting — the ledger row's cost half.
+
+    Two-column cost model (founder 2026-08-13): `usd` = actual money out the door
+    (0 for credit/subscription lanes); `normalized_usd` = the same tokens priced at list
+    rate regardless of funding, so lanes stay comparable (utility-per-dollar's denominator).
+    `funded_by` names the pool: api (metered) | credits (Azure sponsorship) | subscription
+    (skill-server pass-back, P7). savings = normalized_usd - usd.
+    """
     provider: str
     model: str
     input_tokens: int = 0
     output_tokens: int = 0
-    usd: float = 0.0
+    usd: float = 0.0                 # actual spend
+    normalized_usd: float = 0.0      # shadow price at list rate (comparable metric)
+    funded_by: str = "api"           # api | credits | subscription | none(stub)
+    latency_ms: int = 0
 
 
 class BudgetExceeded(RuntimeError):
@@ -63,11 +73,15 @@ class BudgetGuard:
         self.calls.append(call)
 
 
-# rough public prices ($/1M tokens) — used only for the client-side guard estimate
+# list prices ($/1M tokens) — actual spend for metered lanes AND the shadow price for
+# credit/subscription lanes (normalized_usd), so all lanes report comparable economics
 _PRICE = {
     "claude-haiku-4-5-20251001": (1.00, 5.00),
     "claude-sonnet-5": (3.00, 15.00),
     "claude-opus-4-8": (15.00, 75.00),
+    # azure openai judges (approx list; funded by credits -> usd=0, normalized>0)
+    "gpt-5.4-nano": (0.05, 0.40),
+    "gpt-5.4-mini": (0.25, 2.00),
 }
 
 
@@ -100,11 +114,15 @@ class ClaudeBuilder:
             headers={"x-api-key": self._key, "anthropic-version": "2023-06-01",
                      "content-type": "application/json"},
         )
+        import time as _t
+        t0 = _t.monotonic()
         d = json.loads(urllib.request.urlopen(req, timeout=120).read())
+        ms = int((_t.monotonic() - t0) * 1000)
         text = "".join(b.get("text", "") for b in d.get("content", []))
         u = d.get("usage", {})
+        cost = _usd(self.model, u.get("input_tokens", 0), u.get("output_tokens", 0))
         call = Call("anthropic", self.model, u.get("input_tokens", 0), u.get("output_tokens", 0),
-                    _usd(self.model, u.get("input_tokens", 0), u.get("output_tokens", 0)))
+                    usd=cost, normalized_usd=cost, funded_by="api", latency_ms=ms)
         if self.guard:
             self.guard.record(call)
         return text, call
@@ -132,9 +150,14 @@ class AzureJudge:
             url, data=json.dumps({"messages": msgs, "max_completion_tokens": max_tokens}).encode(),
             headers={"api-key": self.key, "content-type": "application/json"},
         )
+        import time as _t
+        t0 = _t.monotonic()
         d = json.loads(urllib.request.urlopen(req, timeout=120).read())
+        ms = int((_t.monotonic() - t0) * 1000)
         text = d["choices"][0]["message"]["content"]
         u = d.get("usage", {})
-        call = Call("azure-openai", self.deployment,
-                    u.get("prompt_tokens", 0), u.get("completion_tokens", 0), 0.0)  # credits
+        tin, tout = u.get("prompt_tokens", 0), u.get("completion_tokens", 0)
+        call = Call("azure-openai", self.deployment, tin, tout,
+                    usd=0.0, normalized_usd=_usd(self.deployment, tin, tout),
+                    funded_by="credits", latency_ms=ms)
         return text, call
