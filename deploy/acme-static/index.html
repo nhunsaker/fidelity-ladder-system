@@ -1,0 +1,22 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Acme — stage</title>
+<style>body{margin:0;font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;color:#1f2328;background:#f6f8fa}
+header{background:#fff;border-bottom:1px solid #d1d9e0;padding:12px 20px;display:flex;gap:14px;align-items:center}
+.brand{font-weight:600}.env{font-size:11px;font-weight:600;border-radius:20px;padding:1px 8px;border:1px solid #d1d9e0;color:#9a6700;background:#fff8c5}
+main{max-width:760px;margin:40px auto;padding:0 20px}
+input{width:100%;max-width:420px;padding:6px 10px;border:1px solid #d1d9e0;border-radius:6px;font-size:14px}
+.card{background:#fff;border:1px solid #d1d9e0;border-radius:6px;padding:16px;margin-top:16px}
+.muted{color:#59636e;font-size:13px}kbd{border:1px solid #d1d9e0;border-radius:4px;padding:0 4px;background:#f6f8fa}</style></head>
+<body><header><span class="brand">Acme</span><span class="env">stage</span>
+<input id="search" data-acceptance="search" placeholder="Search" aria-label="Search"></header>
+<main><div class="card"><b>Welcome to Acme (stage).</b>
+<p class="muted">The fidelity-ladder demo target. Expedition features land here behind flags.</p>
+<p class="muted" id="flagline">flag cmd-k-search: loading…</p></div></main>
+<script>
+fetch('flags.json').then(r=>r.json()).then(f=>{
+  const on = f['cmd-k-search'] && f['cmd-k-search']['stage'];
+  document.getElementById('flagline').textContent = 'flag cmd-k-search: ' + (on ? 'ON' : 'off');
+  if(on){ document.addEventListener('keydown', e=>{ if((e.metaKey||e.ctrlKey)&&e.key==='k'){e.preventDefault();document.getElementById('search').focus();} }); 
+    document.querySelector('.card').insertAdjacentHTML('beforeend','<p class="muted">Press <kbd>⌘K</kbd> to focus search — shipped by expedition #101.</p>'); }
+});
+</script></body></html>

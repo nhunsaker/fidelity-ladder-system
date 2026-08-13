@@ -1,0 +1,12 @@
+admin.fidelity-ladder-system.n8plusus.com {
+  root * /srv/admin
+  file_server
+}
+stage.fidelity-ladder-system.n8plusus.com {
+  root * /srv/stage
+  file_server
+}
+prod.fidelity-ladder-system.n8plusus.com {
+  root * /srv/prod
+  file_server
+}
