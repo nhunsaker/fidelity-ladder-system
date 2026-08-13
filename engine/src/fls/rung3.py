@@ -21,7 +21,9 @@ from fls.rung1 import Builder
 _DEMO_SYS = (
     "You build a SELF-CONTAINED interactive HTML demo (inline CSS/JS, fake data, no build step) "
     "that lets a reviewer click through the flow the spec describes. Throwaway quality is fine — "
-    "it exists to test direction, not to ship. Return ONLY the HTML document."
+    "it exists to test direction, not to ship. PRIORITIZE the interactive body: write the "
+    "markup and JS FIRST, keep CSS under 20 lines. You have a hard output limit — a complete "
+    "plain demo beats a truncated styled one. Return ONLY the HTML document."
 )
 
 
@@ -48,11 +50,19 @@ class Rung3Result:
 
 
 def run_rung3(idea: Idea, spec: str, wireframe: str, builder: Builder, walkthrough: Walkthrough,
-              artifact_dir: str, expedition: int, max_tokens: int = 1500) -> Rung3Result:
+              artifact_dir: str, expedition: int, max_tokens: int = 2800) -> Rung3Result:
     html, call = builder.complete(
         f"SPEC:\n{spec}\n\nPICKED WIREFRAME:\n{wireframe[:1500]}\n\nBuild the interactive demo.",
         max_tokens=max_tokens, system=_DEMO_SYS,
     )
+    # models love markdown fences; a fenced demo renders as text -> strip defensively
+    html = html.strip()
+    for fence in ("```html", "```HTML", "```"):
+        if html.startswith(fence):
+            html = html[len(fence):]
+    if html.rstrip().endswith("```"):
+        html = html.rstrip()[:-3]
+    html = html.strip()
     d = Path(artifact_dir) / str(expedition) / "demo"
     d.mkdir(parents=True, exist_ok=True)
     (d / "index.html").write_text(html, encoding="utf-8")

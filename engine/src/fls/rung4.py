@@ -25,9 +25,12 @@ MAX_CONTEXT_CHARS = 8000  # compaction cap for the builder's bounded context
 
 @dataclass
 class BoundedContext:
-    """Exactly what the rung-4 builder sees — nothing more (Chase#1)."""
+    """Exactly what the rung-4 builder sees — nothing more (Chase#1).
+    acceptance_test added after live-run descent #101: builders MUST see the acceptance
+    criteria as code, or they implement against imagined interfaces."""
     spec: str
     wireframe: str
+    acceptance_test: str = ""
     corner_cuts: list[str] = field(default_factory=list)
     prior_failures: list[str] = field(default_factory=list)
 
@@ -35,6 +38,8 @@ class BoundedContext:
         # per-section caps so a huge spec can never crowd out the recent failures (the part
         # that actually steers the retry). Bounding intelligently > truncating the tail.
         parts = [f"SPEC:\n{self.spec[:3000]}", f"PICKED WIREFRAME:\n{self.wireframe[:1500]}"]
+        if self.acceptance_test:
+            parts.append(f"ACCEPTANCE TEST (your code must pass exactly this):\n{self.acceptance_test[:2000]}")
         if self.corner_cuts:
             parts.append("CORNER CUTS (logged):\n"
                          + "\n".join(f"- {c}" for c in self.corner_cuts[:20]))
