@@ -1,0 +1,37 @@
+name: "🧭 Expedition (idea)"
+description: "File an idea. The admission gate decides admit / dock / needs-human against ANCHOR."
+title: "[idea] "
+labels: ["rung:0-intent"]
+body:
+  - type: markdown
+    attributes:
+      value: "One idea = one expedition. It must trace to the ANCHOR north star or it docks."
+  - type: textarea
+    id: intent
+    attributes:
+      label: Intent
+      description: "One paragraph: what should exist, and why. Trace it to the anchor."
+      placeholder: "As a <user>, I want <capability> so that <outcome>, because <anchor tie>."
+    validations:
+      required: true
+  - type: textarea
+    id: success
+    attributes:
+      label: Success criteria
+      description: "How we'd know it worked — the checkable bar (this becomes the eval)."
+    validations:
+      required: true
+  - type: dropdown
+    id: altitude
+    attributes:
+      label: Altitude
+      description: "Unit of work rung-4 would own (must be within ANCHOR altitude_allowed)."
+      options: ["ticket", "feature"]
+    validations:
+      required: true
+  - type: input
+    id: source
+    attributes:
+      label: Source
+      description: "manual (default) or a feeder name (e.g. studio-brainstorm)"
+      value: "manual"
