@@ -212,8 +212,10 @@ class SkillServerBuilder:
             body["system"] = system
         req = urllib.request.Request(
             f"{self.endpoint}/invoke/{self.skill}", data=json.dumps(body).encode(),
+            # explicit UA: Cloudflare's bot-fight WAF 403s the default "Python-urllib/*" UA
+            # (verified 2026-08-13). Any non-library UA passes; keep it identifiable.
             headers={"authorization": f"Bearer {self._key}", "x-api-key": self._key,
-                     "content-type": "application/json"},
+                     "content-type": "application/json", "user-agent": "fls-engine/0.1"},
         )
         import time as _t
         t0 = _t.monotonic()
