@@ -35,6 +35,10 @@ def test_health_and_anchor(tmp_path):
     a = c.get("/anchor").json()
     assert a["funnel"]["auto_build"] == 1
     assert "feature" in a["altitude_allowed"]
+    # V3-B2 additive fields: version (Constitution) + vessels/default_vessel (Vessels screen)
+    assert a["version"] == 1
+    assert a["default_vessel"] == "acme-demo"
+    assert any(v["name"] == "acme-demo" and v["kind"] == "app" for v in a["vessels"])
 
 
 def test_wall_and_expedition(tmp_path):

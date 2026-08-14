@@ -1,12 +1,14 @@
 // Calibration + Lessons panes (read-only lenses over the harness data).
 import React from 'react'
 
-export function Calibration({ data }) {
+export function Calibration({ data, autonomy }) {
   return (
     <div className="pane">
-      <h2>Autonomy panel · calibration readout</h2>
+      <h2>{autonomy ? 'Autonomy · dial recommendations' : 'Autonomy panel · calibration readout'}</h2>
       <p className="note">Judge-vs-human agreement per rung. Loosening needs an earned track record;
-        tightening is always allowed. A human applies the change.</p>
+        tightening is always allowed. A human applies the change.
+        {autonomy && <> This is the recommendations slice of <a href="#/calibration">Workbench · Calibration</a> —
+          the same ledger, framed for governance.</>}</p>
       <div className="card">
         <table className="t">
           <thead>

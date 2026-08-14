@@ -108,9 +108,14 @@ def system() -> dict:
 @app.get("/anchor")
 def anchor() -> dict:
     a = _anchor()
-    return {"mode": a.mode, "funnel": a.funnel.__dict__,
+    # version + vessels are additive (V3-B2): the admin Constitution/Vessels screens read them.
+    # North-star prose + non-negotiables stay in ANCHOR.md's human header (not surfaced here yet —
+    # the admin mirrors that prose from a constant; a follow-up can add a /anchor/prose slice).
+    return {"version": a.version, "mode": a.mode, "funnel": a.funnel.__dict__,
             "altitude_allowed": a.altitude_allowed,
-            "budgets": a.budgets.__dict__}
+            "budgets": a.budgets.__dict__,
+            "vessels": [v.model_dump() for v in a.vessels],
+            "default_vessel": a.default_vessel}
 
 
 @app.get("/wall")
