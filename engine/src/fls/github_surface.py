@@ -58,6 +58,8 @@ class GitHubClient(Protocol):
     def post_comment(self, issue: int, text: str) -> None: ...
     def set_labels(self, issue: int, labels: list[str]) -> None: ...
     def create_deployment(self, env: str, ref: str) -> bool: ...
+    def get_issue(self, issue: int) -> dict: ...
+    def list_comments(self, issue: int) -> list: ...
 
 
 @dataclass
@@ -69,7 +71,7 @@ class RestGitHubClient:
     def __post_init__(self) -> None:
         self.token = self.token or os.environ.get("GITHUB_TOKEN")
 
-    def _req(self, method: str, path: str, payload: dict | None = None) -> dict:
+    def _req(self, method: str, path: str, payload: dict | None = None) -> dict | list:
         if not self.repo:
             raise RuntimeError("FLS_REPO not set — outbound GitHub calls refuse (fail-closed)")
         req = urllib.request.Request(
@@ -93,6 +95,14 @@ class RestGitHubClient:
                        "required_contexts": []})
         return "id" in d
 
+    def get_issue(self, issue: int) -> dict:
+        d = self._req("GET", f"/issues/{issue}")
+        return d if isinstance(d, dict) else {}
+
+    def list_comments(self, issue: int) -> list:
+        d = self._req("GET", f"/issues/{issue}/comments?per_page=100")
+        return d if isinstance(d, list) else []
+
 
 @dataclass
 class NullClient:
@@ -100,6 +110,7 @@ class NullClient:
     comments: list[tuple[int, str]] = field(default_factory=list)
     labels: list[tuple[int, list[str]]] = field(default_factory=list)
     deployments: list[tuple[str, str]] = field(default_factory=list)
+    issues: dict[int, dict] = field(default_factory=dict)
 
     def post_comment(self, issue: int, text: str) -> None:
         self.comments.append((issue, text))
@@ -110,6 +121,14 @@ class NullClient:
     def create_deployment(self, env: str, ref: str) -> bool:
         self.deployments.append((env, ref))
         return True
+
+    def get_issue(self, issue: int) -> dict:
+        return self.issues.get(issue, {"html_url": f"https://example.test/issues/{issue}",
+                                       "title": f"issue {issue}", "body": ""})
+
+    def list_comments(self, issue: int) -> list:
+        return [{"user": {"login": "harness"}, "body": t, "created_at": ""}
+                for n, t in self.comments if n == issue]
 
 
 # ── event handling: the round-trip ────────────────────────────────────────────
