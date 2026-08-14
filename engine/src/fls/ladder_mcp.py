@@ -93,8 +93,33 @@ def build_server(root: str | Path = ROOT) -> FastMCP:
     # ---------- studio.* (private) ----------
     @mcp.tool
     def studio_trigger_brainstorm(topic: str = "") -> dict:
-        """Trigger the studio brainstorm feeder (P4, not yet wired). Private/auth-scoped."""
-        return {"triggered": False, "reason": "feeder (P4) not yet deployed", "topic": topic}
+        """Trigger the studio brainstorm feeder (P4). Runs one ANCHOR-governed brainstorm on the
+        skill-server (subscription lane) and files the top-N ideas through the STANDARD door — it
+        does NOT admit them (admission stays the gate). Private/auth-scoped. Returns filed refs +
+        the run's shadow economics. If the skill-server is unreachable it fails closed with reason.
+        """
+        from fls.feeder import ListSink, run_feeder
+        from fls.llm import SkillServerBuilder, SkillServerError
+        anchor_path = root / "ANCHOR.md"
+        anchor = Anchor.load(anchor_path)
+        anchor_text = anchor_path.read_text(encoding="utf-8")
+        brainstorm = SkillServerBuilder(shadow_model=anchor.builder.shadow_model)
+        if not brainstorm.available():
+            return {"triggered": False, "reason": "skill-server key unavailable (fail-closed)",
+                    "topic": topic}
+        sink = ListSink()  # the harness posts these as real idea-issues; MCP returns the refs
+        try:
+            run = run_feeder(anchor, anchor_text, brainstorm, sink)
+        except SkillServerError as e:
+            return {"triggered": False, "reason": f"skill-server error: {e}", "topic": topic}
+        return {
+            "triggered": True, "topic": topic, "source": run.source,
+            "proposed": run.proposed, "filed": len(run.filed),
+            "within_envelope": run.within_envelope,
+            "cost_usd": run.cost_usd, "normalized_usd": run.normalized_usd,
+            "ideas": [{"intent": f.candidate.intent, "altitude": f.candidate.altitude}
+                      for f in run.filed],
+        }
 
     return mcp
 
