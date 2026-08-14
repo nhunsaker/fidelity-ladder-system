@@ -32,6 +32,7 @@ class Deps:
     """Injection point. Defaults are lazy so import never needs creds; tests override."""
     root: Path = ROOT
     judge: Any = None            # set to AzureJudge() in prod, a stub in tests
+    github: Any = None           # tests inject a NullClient; prod resolves from env lazily
     _store: ExpeditionStore | None = None
 
     @property
@@ -39,6 +40,18 @@ class Deps:
         if self._store is None:
             self._store = ExpeditionStore(self.root)
         return self._store
+
+
+def _github() -> Any:
+    """Outbound GitHub client, or None when unconfigured (callers fail closed/honest)."""
+    if deps.github is not None:
+        return deps.github
+    import os as _os
+
+    from fls.github_surface import REPO, RestGitHubClient
+    if _os.environ.get("GITHUB_TOKEN") and REPO:
+        return RestGitHubClient()
+    return None
 
 
 deps = Deps()
@@ -67,6 +80,10 @@ def _prod_init() -> None:
         from fls.llm import AzureJudge
         deps.judge = AzureJudge("gpt-5.4-nano")
         log.info("adjudicator: AzureJudge(gpt-5.4-nano)")
+    # FLS_MODULES extension hook — importlib-import each declared module (fail-closed: an
+    # unknown path RAISES here, so the process refuses to start rather than run half-wired).
+    from fls.modules import load_modules
+    load_modules()
 
 
 def _anchor() -> Anchor:
@@ -79,12 +96,26 @@ def health() -> dict:
     return {"status": "ok", "anchor_version": a.version, "mode": a.mode}
 
 
+@app.get("/system")
+def system() -> dict:
+    """Reflect the four module seams (AUTH · IDEAS · SOURCES · WORKERS) as booleans + kinds +
+    docs links — B2's System cards consume this. Read-only, fast, no network probes, no secrets."""
+    from fls.modules import describe
+    a = _anchor()
+    return {"anchor_version": a.version, "slots": describe(a)}
+
+
 @app.get("/anchor")
 def anchor() -> dict:
     a = _anchor()
-    return {"mode": a.mode, "funnel": a.funnel.__dict__,
+    # version + vessels are additive (V3-B2): the admin Constitution/Vessels screens read them.
+    # North-star prose + non-negotiables stay in ANCHOR.md's human header (not surfaced here yet —
+    # the admin mirrors that prose from a constant; a follow-up can add a /anchor/prose slice).
+    return {"version": a.version, "mode": a.mode, "funnel": a.funnel.__dict__,
             "altitude_allowed": a.altitude_allowed,
-            "budgets": a.budgets.__dict__}
+            "budgets": a.budgets.__dict__,
+            "vessels": [v.model_dump() for v in a.vessels],
+            "default_vessel": a.default_vessel}
 
 
 @app.get("/wall")
@@ -174,6 +205,70 @@ async def kill_expedition(number: int, request: Request) -> dict:
     deps.store.ledger().record(Decision(number, rec["rung"], "kill", f"kill:{actor}", 0.0,
                                         human_responded_at=_t.time()))
     return {"number": number, "status": "parked", "by": actor}
+
+
+@app.get("/expeditions/{number}/thread")
+def expedition_thread(number: int) -> dict:
+    """Mirror the expedition's GitHub issue thread into the admin — issues ARE expeditions,
+    so the conversation lives there; the admin is a lens on it. Honest degradation: no
+    outbound token or no linked issue -> available: false with the reason, never a pretend."""
+    if deps.store.get(number) is None:
+        raise HTTPException(404, f"no expedition {number}")
+    client = _github()
+    if client is None:
+        return {"available": False, "reason": "no outbound GitHub token (fail-closed)",
+                "comments": []}
+    try:
+        issue = client.get_issue(number)
+        comments = client.list_comments(number)
+    except Exception:  # noqa: BLE001 — e.g. admin/MCP-filed expedition with no issue
+        return {"available": False, "reason": "no linked GitHub issue for this expedition",
+                "comments": []}
+    return {"available": True, "url": issue.get("html_url"), "title": issue.get("title"),
+            "comments": [{"author": c.get("user", {}).get("login", "?"),
+                          "body": c.get("body", ""), "at": c.get("created_at", "")}
+                         for c in comments]}
+
+
+@app.post("/expeditions/{number}/feedback")
+async def expedition_feedback(number: int, request: Request) -> dict:
+    """Human feedback from the admin -> a comment on the issue. ONE protocol, no side door:
+    commands (/advance, /pick N, /approve) take effect only when GitHub echoes the comment
+    back through the signed webhook — this endpoint never mutates the store itself.
+    Fail-closed: requires a named actor and an outbound token."""
+    body = await request.json()
+    actor = (body.get("actor") or "").strip()
+    text = (body.get("body") or "").strip()
+    if not actor:
+        raise HTTPException(400, "feedback requires a named actor (gate is non-bypassable)")
+    if not text:
+        raise HTTPException(400, "empty feedback")
+    if deps.store.get(number) is None:
+        raise HTTPException(404, f"no expedition {number}")
+    client = _github()
+    if client is None:
+        raise HTTPException(503, "no outbound GitHub token — feedback refused (fail-closed)")
+    is_command = text.startswith("/")
+    formatted = (f"{text}\n\n_(via admin by {actor})_" if is_command
+                 else f"💬 **{actor}** (via admin): {text}")
+    client.post_comment(number, formatted)
+    return {"posted": True, "number": number, "command": is_command}
+
+
+@app.get("/wireframes/{number}/{name}")
+def wireframe(number: str, name: str) -> Any:
+    """Serve one rung-2 wireframe candidate (expeditions/<id>/wireframes/candidate-N.html)."""
+    import re as _re
+
+    from fastapi.responses import FileResponse
+    if not number.replace("-", "").isalnum():  # fail-closed on anything path-like
+        raise HTTPException(404, "bad expedition id")
+    if not _re.fullmatch(r"candidate-\d+\.html", name):
+        raise HTTPException(404, "bad wireframe name")
+    p = deps.root / "expeditions" / number / "wireframes" / name
+    if not p.exists():
+        raise HTTPException(404, f"no wireframe {name} for expedition {number}")
+    return FileResponse(p, media_type="text/html")
 
 
 @app.post("/anchor/validate")

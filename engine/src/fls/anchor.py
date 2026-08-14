@@ -11,6 +11,7 @@ from __future__ import annotations
 import re
 from enum import StrEnum
 from pathlib import Path
+from typing import Literal
 
 import yaml
 from pydantic import BaseModel, Field, field_validator
@@ -139,6 +140,20 @@ class FeederParams(BaseModel):
     cadence: str = "manual"
     model_tier: str = "economy"
     context_cap_tokens: int = 30000       # what the workspace checkout may feed the prompt
+    grounding: str = ""                   # V3 grounding pack folded into ideation when set (empty = off)
+
+
+class Vessel(BaseModel):
+    """V3 — a context pack sitting between the north star and an expedition (Ng's concrete cut:
+    NOT a per-vessel-dials layer). It names the surface being worked (team/app/site/sprint/topic)
+    plus the grounding an expedition needs to explore concretely — paths, standards, refs. An
+    ANCHOR without a `vessels:` block parses identically (slim mode); the block is purely additive."""
+    name: str
+    kind: Literal["team", "app", "site", "sprint", "topic"]
+    description: str = ""
+    paths: list[str] = Field(default_factory=list)
+    standards: list[str] = Field(default_factory=list)
+    refs: list[str] = Field(default_factory=list)
 
 
 class Anchor(BaseModel):
@@ -152,6 +167,8 @@ class Anchor(BaseModel):
     budgets: Budgets
     autonomy_demote: DemoteTrigger
     altitude_allowed: list[str] = Field(min_length=1)
+    vessels: list[Vessel] = Field(default_factory=list)   # V3 context packs (empty = slim mode)
+    default_vessel: str | None = None                     # which vessel an expedition inherits by default
 
     @classmethod
     def load(cls, path: str | Path) -> Anchor:
@@ -164,6 +181,14 @@ class Anchor(BaseModel):
 
     def rung(self, key: str) -> RungPolicy:
         return self.rungs[key]
+
+    def vessel(self, name: str | None = None) -> Vessel | None:
+        """Resolve the named vessel, or the default_vessel when name is None. Returns None if no
+        vessel matches (or none is declared) — callers fail-open to no grounding, never a stub."""
+        target = name or self.default_vessel
+        if target is None:
+            return None
+        return next((v for v in self.vessels if v.name == target), None)
 
     def feeder(self) -> FeederParams:
         """The studio-brainstorm feeder's params (P4), or defaults if no feeder source declared."""

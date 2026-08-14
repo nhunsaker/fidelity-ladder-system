@@ -1,6 +1,32 @@
 {
-  "_comment": "Sample data in the engine's own shapes. In production the admin UI reads these from the GitHub API + ledger via the harness; this fixture lets the static UI render standalone.",
-  "anchor": { "mode": "slim", "funnel": {"auto_build": 1, "interactive_demos": 3, "wireframes": "all"} },
+  "_comment": "Sample data in the engine's own shapes. In production the admin UI reads these from the GitHub API + ledger via the harness; this fixture lets the static UI render standalone. Extended for V3-B2: anchor version/vessels, /system slots, and a needs-human expedition so Workbench/Anchor/System all render offline.",
+  "anchor": {
+    "version": 1,
+    "mode": "slim",
+    "funnel": {"auto_build": 1, "interactive_demos": 3, "wireframes": "all"},
+    "altitude_allowed": ["ticket", "feature"],
+    "default_vessel": "acme-demo",
+    "vessels": [
+      {"name": "acme-demo", "kind": "app",
+       "description": "The Acme demo app — the storefront + inventory-admin surface the fidelity ladder builds against (product pages, the restock button, inventory tables). Small on purpose.",
+       "paths": ["demo-app/"],
+       "standards": ["a11y: axe-clean on changed surfaces", "use @metatoy/bootstrap-styled components"],
+       "refs": []}
+    ]
+  },
+  "system": {
+    "anchor_version": 1,
+    "slots": {
+      "auth": {"slot": "auth", "kind": "github-app", "configured": true, "available": true, "docs_url": "/docs/modules.md#auth", "detail": {}},
+      "ideas": [
+        {"slot": "ideas", "kind": "manual", "configured": true, "available": true, "docs_url": "/docs/modules.md#ideas", "detail": {}},
+        {"slot": "ideas", "kind": "feeder", "configured": true, "available": false, "docs_url": "/docs/modules.md#ideas", "detail": {}}
+      ],
+      "sources": {"slot": "sources", "kind": "github", "configured": true, "available": true, "docs_url": "/docs/modules.md#sources", "detail": {"prod_repo": "acme/widgets", "dev_repo": "acme/widgets-dev"}},
+      "workers": {"slot": "workers", "kind": "skill-server", "configured": false, "available": false, "docs_url": "/docs/modules.md#workers", "detail": {"fallback": "api", "fallback_budget_usd": 0.5}}
+    }
+  },
+  "total_cost": 7.10,
   "expeditions": [
     {"number": 101, "intent": "Cmd-K jumps focus to search", "rung": "5-flagged", "dial": "propose-only", "status": "await-signoff", "target": "5-flagged", "spent": 3.12, "reason": "draft PR behind flag; awaiting sign-off"},
     {"number": 102, "intent": "Inline validation on the settings form", "rung": "3-demo", "dial": "auto-advance", "status": "await-pick", "target": "3-demo", "spent": 0.61, "reason": "interactive demo ready on the shelf"},
@@ -8,6 +34,7 @@
     {"number": 104, "intent": "Empty-state illustration for the dashboard", "rung": "3-demo", "dial": "auto-advance", "status": "await-pick", "target": "3-demo", "spent": 0.55, "reason": "interactive demo ready on the shelf"},
     {"number": 105, "intent": "Keyboard nav for the menu", "rung": "2-wireframe", "dial": "human-picks", "status": "await-pick", "target": "2-wireframe", "spent": 0.34, "reason": "wireframe pick-of-3 pending"},
     {"number": 106, "intent": "Dark mode toggle", "rung": "2-wireframe", "dial": "human-picks", "status": "descended", "target": "5-flagged", "spent": 1.90, "reason": "rung-4 design failure: theme tokens not applied to modals; address at re-climb"},
+    {"number": 108, "intent": "Restock button: make the primary CTA bolder", "rung": "1-spec", "dial": "human-picks", "status": "needs-human", "target": "4-mvp", "spent": 0.00, "reason": "ambiguous success signal — the judge wants a human call before spend", "judge_note": "traces to the north star but 'bolder' is unmeasurable; ask for a concrete signal"},
     {"number": 107, "intent": "Add a marketing blog with SEO", "rung": "0-intent", "dial": "propose-only", "status": "docked", "target": "0-intent", "spent": 0.00, "reason": "does not trace to the ANCHOR north star (out of scope)"}
   ],
   "calibration": [

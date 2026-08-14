@@ -99,6 +99,13 @@ systemd service on `127.0.0.1:8700`, Caddy for TLS with the admin served statica
 `/api/*` proxied to the harness (the admin's default fetch base is same-origin `/api` — no
 build-time config needed). Three hosts: admin, stage, prod.
 
+## 6. Check your wiring
+
+`GET https://<your-harness>/system` is the install health check: all four module slots
+(auth · ideas · sources · workers) with `configured`/`available` booleans and a docs link per
+slot — see [modules.md](modules.md). Anything unconfigured fails closed and says so; fix by
+setting the env var the slot's docs name, never by editing code.
+
 ## The gates you'll own
 
 The ladder never removes these from the human: prod promotion (a named `/approve`), the kill

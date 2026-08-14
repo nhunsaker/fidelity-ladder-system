@@ -27,6 +27,19 @@ autonomous`). The funnel assigns each admitted idea a *target rung* (its lane): 
 top idea auto-builds the full ladder, the next three park at an interactive demo, everything
 admitted gets at least a wireframe — the backlog is a gallery, never a black hole.
 
+**Rung 2 is fidelity-adaptive Exploration.** The rung classifies the expedition (fail-open to
+structure): new flows get low-fi structural candidates; a tweak to an existing UI element gets
+**concrete styled variants of the actual component** — real colors, weights, shapes, drawn
+from the app's own component library. Candidates are *lines* (the path a climber reads up a
+face before committing); the human picks the line.
+
+**Vessels ground the climb.** A vessel is a named context pack between the north star and the
+expedition — a team, an app, a site, a sprint, or a topic — carrying description, paths,
+standards, and pointers to prior expeditions and lessons. Admission judges, ideation, and the
+early rungs all read the expedition's vessel (default: the ANCHOR's `default_vessel`), so
+judgments are informed and explorations are concrete instead of generic. The tighten-only
+cascade runs ANCHOR → VESSEL → EXPEDITION.
+
 ## Descent — failure as a first-class transition
 
 Rung 4 is a **loop, not a gate**: build → verify → classify. The verifier's failure taxonomy

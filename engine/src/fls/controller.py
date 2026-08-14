@@ -30,9 +30,9 @@ _RANK_SYS = (
 
 
 def on_idea(idea: Idea, anchor: Anchor, anchor_text: str, judge: Judge,
-            ledger: Ledger) -> tuple[Verdict, str]:
+            ledger: Ledger, grounding: str = "") -> tuple[Verdict, str]:
     """Admission. Records the ledger decision (human_verdict None until a human weighs in)."""
-    j = adjudicate(idea, anchor, anchor_text, judge)
+    j = adjudicate(idea, anchor, anchor_text, judge, grounding=grounding)
     c = j.cost
     ledger.record(Decision(
         expedition=idea.number, rung="0-intent", judge_verdict=j.verdict.value,
@@ -58,14 +58,15 @@ def _rank_admitted(ideas: list[Idea], anchor: Anchor, judge: Judge) -> list[Rank
 
 
 def run_batch(ideas: list[Idea], anchor: Anchor, anchor_text: str, judge: Judge,
-              builder: Builder, ledger: Ledger, expeditions_dir: str) -> list[Expedition]:
+              builder: Builder, ledger: Ledger, expeditions_dir: str,
+              grounding: str = "") -> list[Expedition]:
     ceiling = anchor.budgets.per_expedition_ceiling_usd
 
     # 1. admission
     admitted: list[Idea] = []
     exps: dict[int, Expedition] = {}
     for idea in ideas:
-        verdict, reason = on_idea(idea, anchor, anchor_text, judge, ledger)
+        verdict, reason = on_idea(idea, anchor, anchor_text, judge, ledger, grounding=grounding)
         if verdict == Verdict.admit:
             admitted.append(idea)
         else:  # dock / needs-human both stop here with a reason
@@ -86,7 +87,7 @@ def run_batch(ideas: list[Idea], anchor: Anchor, anchor_text: str, judge: Judge,
 
         # rung 1: spec + reflection
         if e.target_rung >= RUNG_SPEC:
-            r1 = run_rung1(idea, anchor, builder, judge)
+            r1 = run_rung1(idea, anchor, builder, judge, grounding=grounding)
             e.add(r1.calls)
             e.spec = r1.revised_top
             if e.spent_usd > ceiling:
@@ -97,7 +98,7 @@ def run_batch(ideas: list[Idea], anchor: Anchor, anchor_text: str, judge: Judge,
 
         # rung 2: wireframe fan-out (human pick pending)
         if e.target_rung >= RUNG_WIRE:
-            r2 = run_rung2(idea, e.spec or idea.intent, builder, judge)
+            r2 = run_rung2(idea, e.spec or idea.intent, builder, judge, grounding=grounding)
             e.add(r2.calls)
             e.wireframes = r2.wireframes
             r2.persist(expeditions_dir, idea.number)
