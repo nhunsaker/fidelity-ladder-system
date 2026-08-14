@@ -1,0 +1,14 @@
+# systemd unit for the harness API (adjust paths for your host).
+[Unit]
+Description=Fidelity Ladder harness API
+After=network.target
+
+[Service]
+User=fls
+WorkingDirectory=/opt/fls
+EnvironmentFile=/opt/fls/.env
+ExecStart=/opt/fls/.venv/bin/uvicorn fls.app:app --host 127.0.0.1 --port 8700
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,30 @@
+{
+  "$description": "Semantic role layer — what admin components actually consume as var(--token, fallback). References resolve into primitive.json. Names mirror the domain: rung/status/dial are the ladder's own vocabulary.",
+  "color": {
+    "canvas": { "$value": "{color.gray.0}", "$type": "color" },
+    "surface": { "$value": "{color.white}", "$type": "color" },
+    "fg": { "$value": "{color.gray.9}", "$type": "color" },
+    "fg-muted": { "$value": "{color.gray.5}", "$type": "color" },
+    "border": { "$value": "{color.gray.3}", "$type": "color" },
+    "border-muted": { "$value": "{color.gray.1}", "$type": "color" },
+    "accent": { "$value": "{color.blue.5}", "$type": "color" },
+    "success": { "$value": "{color.green.5}", "$type": "color" },
+    "attention": { "$value": "{color.yellow.6}", "$type": "color" },
+    "danger": { "$value": "{color.red.5}", "$type": "color" },
+    "done": { "$value": "{color.purple.5}", "$type": "color" },
+    "rung-bg": { "$value": "{color.blue.0}", "$type": "color" },
+    "rung-fg": { "$value": "{color.blue.6}", "$type": "color" },
+    "dial-bg": { "$value": "{color.purple.0}", "$type": "color" },
+    "dial-fg": { "$value": "{color.purple.5}", "$type": "color" },
+    "status-signoff-bg": { "$value": "{color.yellow.0}", "$type": "color" },
+    "status-signoff-fg": { "$value": "{color.yellow.6}", "$type": "color" },
+    "status-pick-bg": { "$value": "{color.green.0}", "$type": "color" },
+    "status-pick-fg": { "$value": "{color.green.5}", "$type": "color" },
+    "status-descended-bg": { "$value": "{color.red.0}", "$type": "color" },
+    "status-descended-fg": { "$value": "{color.red.5}", "$type": "color" }
+  },
+  "radius": {
+    "card": { "$value": "{radius.control}", "$type": "dimension" },
+    "label": { "$value": "{radius.pill}", "$type": "dimension" }
+  }
+}
