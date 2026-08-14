@@ -23,6 +23,7 @@ class RungCalibration:
     cost_per_verdict: float | None
     disagreements: list[str] = field(default_factory=list)   # judge->human mismatch examples
     recommendation: str = "hold"      # hold | tighten | eligible-to-loosen
+    human_latency_avg_s: float | None = None   # Yao#3 — mean time-to-human-response at this gate
 
 
 def rung_calibration(ledger: Ledger, anchor: Anchor, rung: str) -> RungCalibration:
@@ -41,7 +42,8 @@ def rung_calibration(ledger: Ledger, anchor: Anchor, rung: str) -> RungCalibrati
             rec = "tighten"                       # falling below floor -> demote
         elif agree >= 0.95:
             rec = "eligible-to-loosen"            # earned autonomy (human confirms)
-    return RungCalibration(rung, len(rows), len(scored), agree, cpv, mismatches, rec)
+    return RungCalibration(rung, len(rows), len(scored), agree, cpv, mismatches, rec,
+                           ledger.human_latency_avg(rung))
 
 
 @dataclass
@@ -52,12 +54,13 @@ class CalibrationReport:
 
     def as_markdown(self) -> str:
         lines = ["## Calibration readout\n",
-                 "| rung | decisions | agreement | $/verdict | recommendation |",
-                 "|---|---|---|---|---|"]
+                 "| rung | decisions | agreement | $/verdict | human-latency | recommendation |",
+                 "|---|---|---|---|---|---|"]
         for r in self.rungs:
             ag = "-" if r.agreement is None else f"{r.agreement:.0%}"
             cp = "-" if r.cost_per_verdict is None else f"${r.cost_per_verdict:.4f}"
-            lines.append(f"| {r.rung} | {r.decisions} | {ag} | {cp} | {r.recommendation} |")
+            hl = "-" if r.human_latency_avg_s is None else f"{r.human_latency_avg_s:.0f}s"
+            lines.append(f"| {r.rung} | {r.decisions} | {ag} | {cp} | {hl} | {r.recommendation} |")
         lines.append(f"\n_total decisions: {self.total_decisions} · total judge cost: "
                      f"${self.total_cost:.4f}_")
         return "\n".join(lines)

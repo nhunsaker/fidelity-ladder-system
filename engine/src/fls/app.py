@@ -93,6 +93,19 @@ def lessons() -> list[str]:
     return deps.store.lessons()
 
 
+@app.get("/preview/{number}")
+def preview(number: str) -> Any:
+    """Serve an expedition's rung-3 interactive demo (P2.2 debt: stage…/preview/<id>).
+    `number` is a path-safe expedition id (e.g. 101 or live-101) — never a path."""
+    from fastapi.responses import FileResponse
+    if not number.replace("-", "").isalnum():  # fail-closed on anything path-like
+        raise HTTPException(404, "bad expedition id")
+    demo = deps.root / "expeditions" / number / "demo" / "index.html"
+    if not demo.exists():
+        raise HTTPException(404, f"no demo for expedition {number}")
+    return FileResponse(demo, media_type="text/html")
+
+
 @app.post("/ideas")
 async def file_idea(request: Request) -> dict:
     """File an idea -> run admission (needs deps.judge). Returns the verdict + reasoning."""

@@ -26,12 +26,23 @@ class Decision:
     judge_cost_usd: float
     judge_tokens_in: int = 0
     judge_tokens_out: int = 0
+    # human-latency (Yao#3): success is defined against the interactive reality — how long a
+    # gate actually waits for its human. Epoch seconds, injected by the caller (the harness
+    # stamps gate_opened_at when it posts the ask, human_responded_at on the reply).
+    gate_opened_at: float | None = None
+    human_responded_at: float | None = None
 
     @property
     def agreed(self) -> bool | None:
         if self.human_verdict is None:
             return None
         return self.judge_verdict == self.human_verdict
+
+    @property
+    def human_latency_s(self) -> float | None:
+        if self.gate_opened_at is None or self.human_responded_at is None:
+            return None
+        return max(0.0, self.human_responded_at - self.gate_opened_at)
 
 
 @dataclass
@@ -58,6 +69,14 @@ class Ledger:
         if not scored:
             return None
         return sum(1 for x in scored if x) / len(scored)
+
+    def human_latency_avg(self, rung: str | None = None) -> float | None:
+        """Mean time-to-human-response (s) across gates that have both timestamps (Yao#3)."""
+        lats = [d.human_latency_s for d in self.rows
+                if (rung is None or d.rung == rung) and d.human_latency_s is not None]
+        if not lats:
+            return None
+        return round(sum(lats) / len(lats), 1)
 
     def cost_per_verdict(self, rung: str | None = None) -> float | None:
         rows = [d for d in self.rows if rung is None or d.rung == rung]

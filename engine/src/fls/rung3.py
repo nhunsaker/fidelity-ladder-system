@@ -42,6 +42,7 @@ class Walkthrough(Protocol):
 class Rung3Result:
     demo_html: str
     walkthrough: WalkthroughResult
+    preview_url: str = ""            # served route (harness /preview/<id> · stage…/preview/<id>)
     calls: list[Call] = field(default_factory=list)
 
     @property
@@ -67,4 +68,6 @@ def run_rung3(idea: Idea, spec: str, wireframe: str, builder: Builder, walkthrou
     d.mkdir(parents=True, exist_ok=True)
     (d / "index.html").write_text(html, encoding="utf-8")
     wt = walkthrough.run(str(d / "index.html"), idea.success)
-    return Rung3Result(html, wt, [call])
+    # the served route (P2.2): harness GET /preview/<id>; stage maps the same path. Feeds the
+    # PR package's walkthrough link so a reviewer clicks straight into the artifact.
+    return Rung3Result(html, wt, preview_url=f"/preview/{expedition}", calls=[call])
