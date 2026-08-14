@@ -86,7 +86,6 @@ def test_anchor_propose_without_token_is_simulated(tmp_path, monkeypatch):
 def test_feeder_run_fails_closed_without_key(tmp_path, monkeypatch):
     monkeypatch.delenv("LANGCHAIN_API_KEY", raising=False)
     monkeypatch.delenv("FLS_SKILL_SERVER_KEY", raising=False)
-    monkeypatch.setattr("fls.llm._keychain", lambda s: None)
     c = _client(tmp_path)
     d = c.post("/feeder/run", json={"scope": "x"}).json()
     assert d["triggered"] is False and "fail-closed" in d["reason"]

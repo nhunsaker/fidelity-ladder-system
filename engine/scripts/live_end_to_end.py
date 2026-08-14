@@ -3,20 +3,23 @@ Live haiku builders + Azure judges. Admission -> rung1(+reflection) -> rung2 -> 
 (judge's suggestion; demo convenience) -> rung3 (REAL demo + REAL Playwright walkthrough)
 -> rung4 loop (real LocalVerifier on a scripted acceptance test). Artifacts persist to
 expeditions/live-101/."""
-import subprocess, sys, textwrap
+import subprocess
+import sys
+import textwrap
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from fls.anchor import Anchor
 from fls.adjudicator import Idea, adjudicate
-from fls.llm import ClaudeBuilder, AzureJudge, BudgetGuard
+from fls.anchor import Anchor
+from fls.ledger import Decision, Ledger
+from fls.llm import AzureJudge, BudgetGuard, ClaudeBuilder
+from fls.local_verifier import LocalVerifier
+from fls.playwright_walkthrough import PlaywrightWalkthrough
 from fls.rung1 import run_rung1
 from fls.rung2 import run_rung2
 from fls.rung3 import run_rung3
 from fls.rung4 import BoundedContext, run_rung4
-from fls.local_verifier import LocalVerifier
-from fls.playwright_walkthrough import PlaywrightWalkthrough
-from fls.ledger import Decision, Ledger
 
 ROOT = Path(__file__).resolve().parents[2]
 EXP = ROOT / "expeditions" / "live-101"

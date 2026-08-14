@@ -1,0 +1,25 @@
+# Reference deploy — one small VM, Caddy auto-TLS, three hosts + the harness API.
+# Replace ladder.example.com with your domains; the harness (uvicorn) listens on 127.0.0.1:8700.
+
+admin.ladder.example.com {
+	root * /srv/admin
+	file_server
+	# same-origin API: the admin's default fetch base is /api — proxy it to the harness
+	handle_path /api/* {
+		reverse_proxy 127.0.0.1:8700
+	}
+}
+
+stage.ladder.example.com {
+	root * /srv/stage
+	file_server
+}
+
+prod.ladder.example.com {
+	root * /srv/prod
+	file_server
+}
+
+api.ladder.example.com {
+	reverse_proxy 127.0.0.1:8700
+}

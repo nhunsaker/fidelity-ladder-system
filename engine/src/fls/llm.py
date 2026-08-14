@@ -5,40 +5,29 @@ and the same code makes real calls once creds are present. A client-side budget 
 the ANCHOR Claude hard cap so builder spend cannot exceed it even before the console cap is set
 (fail-closed belt-and-suspenders).
 
-Creds resolution (no plaintext committed):
-  - Anthropic: env ANTHROPIC_API_KEY, else macOS keychain service `anthropic-api-key`.
-  - Azure OpenAI: env AZURE_OPENAI_ENDPOINT + AZURE_OPENAI_KEY (or `az` token).
+Creds resolution (12-factor, env only — no credential store coupling in code):
+  - Anthropic: env ANTHROPIC_API_KEY.
+  - Azure OpenAI: env AZURE_OPENAI_ENDPOINT + AZURE_OPENAI_KEY.
+  - Skill server: env FLS_SKILL_SERVER (endpoint) + LANGCHAIN_API_KEY (bearer).
+Local dev may bridge a secret store into env via an untracked script (see
+instance.env.example); the code itself only ever reads the environment.
 """
 from __future__ import annotations
 
 import json
 import os
-import subprocess
 import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
 
 
-def _keychain(service: str) -> str | None:
-    try:
-        out = subprocess.run(
-            ["security", "find-generic-password", "-s", service, "-w"],
-            capture_output=True, text=True, timeout=5, check=False,
-        )
-        return out.stdout.strip() or None
-    except (OSError, subprocess.SubprocessError):
-        return None
-
-
 def anthropic_key() -> str | None:
-    return os.environ.get("ANTHROPIC_API_KEY") or _keychain("anthropic-api-key")
+    return os.environ.get("ANTHROPIC_API_KEY")
 
 
 def skill_server_key() -> str | None:
-    # the skill-server's flat LANGCHAIN_API_KEY (Bearer / x-api-key). Keychain service is
-    # `langchain-api-key` (verified against metatoy-ops/langchain/src/server.js).
-    return (os.environ.get("FLS_SKILL_SERVER_KEY") or os.environ.get("LANGCHAIN_API_KEY")
-            or _keychain("langchain-api-key"))
+    """The skill server's flat API key (sent as Bearer / x-api-key)."""
+    return os.environ.get("FLS_SKILL_SERVER_KEY") or os.environ.get("LANGCHAIN_API_KEY")
 
 
 @dataclass
@@ -49,7 +38,7 @@ class Call:
     (0 for credit/subscription lanes); `normalized_usd` = the same tokens priced at list
     rate regardless of funding, so lanes stay comparable (utility-per-dollar's denominator).
     `funded_by` names the pool: api (metered) | credits (Azure sponsorship) | subscription
-    (skill-server pass-back, P7). savings = normalized_usd - usd.
+    (skill-server pass-back). savings = normalized_usd - usd.
     """
     provider: str
     model: str
@@ -111,7 +100,7 @@ class ClaudeBuilder:
 
     def complete(self, prompt: str, max_tokens: int = 1024, system: str | None = None) -> tuple[str, Call]:
         if not self._key:
-            raise RuntimeError("no Anthropic key (env ANTHROPIC_API_KEY / keychain anthropic-api-key)")
+            raise RuntimeError("no Anthropic key (env ANTHROPIC_API_KEY)")
         body = {"model": self.model, "max_tokens": max_tokens,
                 "messages": [{"role": "user", "content": prompt}]}
         if system:
@@ -141,15 +130,15 @@ class AzureJudge:
 
     def __init__(self, deployment: str = "gpt-5.4-nano"):
         self.deployment = deployment
-        self.endpoint = os.environ.get("AZURE_OPENAI_ENDPOINT", "https://metatoy-kb-openai.openai.azure.com")
+        self.endpoint = os.environ.get("AZURE_OPENAI_ENDPOINT", "")
         self.key = os.environ.get("AZURE_OPENAI_KEY")
 
     def available(self) -> bool:
-        return bool(self.key)
+        return bool(self.key) and bool(self.endpoint)
 
     def complete(self, prompt: str, max_tokens: int = 1024, system: str | None = None) -> tuple[str, Call]:
-        if not self.key:
-            raise RuntimeError("no Azure OpenAI key (env AZURE_OPENAI_KEY)")
+        if not self.key or not self.endpoint:
+            raise RuntimeError("Azure judge not configured (env AZURE_OPENAI_ENDPOINT + AZURE_OPENAI_KEY)")
         msgs = ([{"role": "system", "content": system}] if system else []) + \
                [{"role": "user", "content": prompt}]
         url = (f"{self.endpoint}/openai/deployments/{self.deployment}/chat/completions"
@@ -177,18 +166,16 @@ class SkillServerError(RuntimeError):
 
 
 class SkillServerBuilder:
-    """P7 — builder work fulfilled by the studio skill-server (Temporal/LangChain over the local
-    `claude -p` CLI on the NAS; memory: langchain-skill-server-nas). NO Anthropic API key and NO
-    metered spend — the work rides the founder's Claude subscription. Accounting: usd=0.0 (nothing
+    """Builder work fulfilled by a self-hosted remote skill server. NO Anthropic API key and NO
+    metered spend — the work rides an existing subscription behind that server. Accounting: usd=0.0 (nothing
     metered), normalized_usd = the same tokens priced at `shadow_model`'s list rate so the
     subscription lane stays comparable to the api lane; funded_by="subscription".
 
-    Real contract (verified against metatoy-ops/langchain/src/server.js + skills.js): the server
-    exposes named skills at POST {endpoint}/invoke/{skill}, auth = `Authorization: Bearer <key>`
-    (LANGCHAIN_API_KEY), request body = the skill's input, response = {skill, output}. Builder work
-    rides a generic `complete` skill (input {prompt, system?} -> the model text). The server does
-    NOT report token usage, so the shadow cost is ESTIMATED from text length (~4 chars/token) unless
-    a future server response includes a `usage` object. Endpoint + skill name are configurable.
+    Contract: the server exposes named skills at POST {endpoint}/invoke/{skill}, auth =
+    `Authorization: Bearer <key>`, request body = the skill's input, response = {skill, output}.
+    Builder work rides a generic `complete` skill (input {prompt, system?} -> the model text).
+    If the server does not report token usage, the shadow cost is ESTIMATED from text length
+    (~4 chars/token). Endpoint + skill name are configurable.
     """
 
     def __init__(self, shadow_model: str = "claude-haiku-4-5-20251001",
@@ -196,17 +183,17 @@ class SkillServerBuilder:
                  guard: BudgetGuard | None = None):
         self.shadow_model = shadow_model
         self.skill = skill
-        self.endpoint = (endpoint or os.environ.get("FLS_SKILL_SERVER")
-                         or "https://langchain.n8plusus.com").rstrip("/")
+        self.endpoint = (endpoint or os.environ.get("FLS_SKILL_SERVER") or "").rstrip("/")
         self.guard = guard  # subscription calls don't count against the claude cap, but recorded
         self._key = skill_server_key()
 
     def available(self) -> bool:
-        return bool(self._key)
+        return bool(self._key) and bool(self.endpoint)
 
     def complete(self, prompt: str, max_tokens: int = 1024, system: str | None = None) -> tuple[str, Call]:
-        if not self._key:
-            raise SkillServerError("no skill-server key (env LANGCHAIN_API_KEY / keychain langchain-api-key)")
+        if not self._key or not self.endpoint:
+            raise SkillServerError(
+                "skill server not configured (env FLS_SKILL_SERVER + LANGCHAIN_API_KEY)")
         body: dict = {"prompt": prompt, "max_tokens": max_tokens}
         if system:
             body["system"] = system

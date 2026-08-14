@@ -1,9 +1,11 @@
 # docs/
 
-Operational docs for this repo only:
+Public documentation for the Fidelity Ladder System:
 
-- `github-app-setup.md` — registering the GitHub App that drives the surface
-- `security-audit-2026-08-13.md` — the pre-public full-history audit receipt
+- `getting-started.md` — install the ladder on your repo
+- `anchor-reference.md` — every ANCHOR section, key, and default
+- `architecture.md` — layers, the rung state machine, descent, the cost model
+- `api.md` — harness routes + the webhook contract
 
-Project specs, build plans, design walkthroughs, and analysis reports live in the
-studio's spec tree (`spec/fidelity-ladder-system/`), outside this repo.
+Instance configuration is environment-only — see `../instance.env.example` and
+`../deploy.example/`.

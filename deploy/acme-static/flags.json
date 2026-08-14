@@ -1,7 +1,0 @@
-{
-  "_comment": "Feature flags. Rung-5 ships a change behind a flag OFF in prod until sign-off.",
-  "cmd-k-search": {
-    "stage": true,
-    "prod": false
-  }
-}

@@ -30,7 +30,7 @@ from fls.expedition import CLIMBING, DOCKED, NEEDS_HUMAN, Expedition
 from fls.ledger import Decision, Ledger
 from fls.store import RUNG_NAMES, ExpeditionStore
 
-REPO = os.environ.get("FLS_REPO", "metatoy/fidelity-ladder-system")
+REPO = os.environ.get("FLS_REPO", "")  # instance config; outbound refuses when unset
 
 
 # ── inbound: signature (fail-closed) ──────────────────────────────────────────
@@ -70,6 +70,8 @@ class RestGitHubClient:
         self.token = self.token or os.environ.get("GITHUB_TOKEN")
 
     def _req(self, method: str, path: str, payload: dict | None = None) -> dict:
+        if not self.repo:
+            raise RuntimeError("FLS_REPO not set — outbound GitHub calls refuse (fail-closed)")
         req = urllib.request.Request(
             f"https://api.github.com/repos/{self.repo}{path}",
             data=json.dumps(payload).encode() if payload is not None else None, method=method,

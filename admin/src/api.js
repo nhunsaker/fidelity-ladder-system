@@ -3,9 +3,9 @@
 // harness is unreachable the UI degrades to /fixtures.json and SAYS SO (the `source` field) —
 // the lens never silently pretends fixture data is live.
 
-const BASE = import.meta.env.VITE_FLS_API
-  || (import.meta.env.DEV ? 'https://api.fidelity-ladder-system.n8plusus.com'
-                          : 'https://api.fidelity-ladder-system.n8plusus.com')
+// Instance config (12-factor): VITE_FLS_API at build time, else same-origin /api — the
+// reference deploy proxies /api/* on the admin host to the harness. No instance URLs in code.
+const BASE = import.meta.env.VITE_FLS_API || '/api' 
 
 /** @typedef {{source: 'live'|'fixtures', expeditions: any[], calibration: any[], lessons: string[], anchor: any}} AdminData */
 
