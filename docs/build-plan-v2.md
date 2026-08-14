@@ -79,6 +79,14 @@ V2 closes those gaps and rebuilds the admin as a best-in-class guided UI:
 human_latency_s · `curl stage…/preview/101` serves the live demo · taxonomy doc with 10-run
 data + lesson-coverage statement. Engine suite stays green, ruff clean.
 
+> **✅ V2-P1 DONE 2026-08-13** (branch `feat/v2-p1-engine`, PR #2, CI green, suite 81🟢).
+> All four verify lines hold: pruned-branch test ✓ · human_latency_s in ledger + /calibration ✓
+> · stage…/preview/101/ live 200 ✓ · `failure-taxonomy.md` (this dir + repo docs/) with the
+> **N=10 A/B**: acceptance-as-code 10/10 vs ablation 8/10 (two contract-misread failures
+> reproducing #101's mode) — the coverage check flagged a real GAP (LESSONS held a raw dump,
+> not a pattern) and the generalized pattern is now appended with the measured numbers.
+> Spend $0.0184 of the $0.60 cap.
+
 ### V2-P2 — Real GitHub surface (the claim becomes true) [P0.5 debt]
 1. **Deploy the harness API on the VM** (uvicorn service + Caddy reverse-proxy on an api
    subdomain or path) — prerequisite for webhooks AND the admin's live API.
