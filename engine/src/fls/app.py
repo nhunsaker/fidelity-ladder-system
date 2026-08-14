@@ -80,6 +80,10 @@ def _prod_init() -> None:
         from fls.llm import AzureJudge
         deps.judge = AzureJudge("gpt-5.4-nano")
         log.info("adjudicator: AzureJudge(gpt-5.4-nano)")
+    # FLS_MODULES extension hook — importlib-import each declared module (fail-closed: an
+    # unknown path RAISES here, so the process refuses to start rather than run half-wired).
+    from fls.modules import load_modules
+    load_modules()
 
 
 def _anchor() -> Anchor:
@@ -90,6 +94,15 @@ def _anchor() -> Anchor:
 def health() -> dict:
     a = _anchor()
     return {"status": "ok", "anchor_version": a.version, "mode": a.mode}
+
+
+@app.get("/system")
+def system() -> dict:
+    """Reflect the four module seams (AUTH · IDEAS · SOURCES · WORKERS) as booleans + kinds +
+    docs links — B2's System cards consume this. Read-only, fast, no network probes, no secrets."""
+    from fls.modules import describe
+    a = _anchor()
+    return {"anchor_version": a.version, "slots": describe(a)}
 
 
 @app.get("/anchor")
