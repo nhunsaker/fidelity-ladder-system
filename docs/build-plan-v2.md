@@ -45,6 +45,15 @@ V2 closes those gaps and rebuilds the admin as a best-in-class guided UI:
 3. **Founder approval**: pick one direction (or a blend). HARD GATE — no admin build before this.
 **Verify:** 3 rendered boards screenshot-verified + a picked direction recorded in the spec.
 
+> **✅ V2-P0 DONE 2026-08-13.** Token set built + committed (`admin-v2/tokens/` → Style
+> Dictionary → `variables.css` + `tokens.js`, commit `ae98583`, branch `feat/v2-p0-design`).
+> Three explorations rendered + screenshot-QA'd in Claude Design (project "Fidelity Ladder —
+> Admin v2 Explorations"): 1a dense-console · 1b card-forward · 1c rail-navigation — each =
+> Home + one wizard step on shared fixture data, Primer palette only, artifact chains
+> (issue·demo·PR) per row. **GATE CLEARED — founder picked `1c` Rail navigation** (left rail
+> scaling to ANCHOR console/feeder/calibration; vertical-stepper wizard with map-and-validate).
+> V2-P3 builds to 1c.
+
 ### V2-P1 — Engine gaps (parallel-safe with P0; no UI dependency)
 1. **Prune-early funnel** [Wang#2]: in `engine/src/fls/funnel.py` — judges score cheap partial
    generations (first ~200 chars of each rung-1 candidate) and kill weak branches BEFORE the
