@@ -115,6 +115,8 @@ def build_prompt(params: FeederParams, anchor_text: str, workspace_context: str 
     if params.guardrails_into_prompt:
         parts.append("ANCHOR (ideas MUST trace to this):\n" + guardrails_prose(anchor_text))
     parts.append(f"SCOPE: {params.scope}")
+    if params.grounding.strip():   # V3 grounding pack (vessel + lessons + prior expeditions)
+        parts.append("CONTEXT (grounding):\n" + params.grounding.strip())
     if workspace_context:
         cap = params.context_cap_tokens * _CHARS_PER_TOKEN
         parts.append("WORKSPACE CONTEXT (grounding, truncated):\n" + workspace_context[:cap])

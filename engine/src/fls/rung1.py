@@ -52,14 +52,15 @@ class Rung1Result:
 
 
 def run_rung1(idea: Idea, anchor: Anchor, builder: Builder, judge: Judge,
-              n: int = 3, max_tokens: int = 320) -> Rung1Result:
+              n: int = 3, max_tokens: int = 320, grounding: str = "") -> Rung1Result:
     calls: list[Call] = []
+    context = f"\n\nCONTEXT:\n{grounding}" if grounding.strip() else ""
 
     # 1. fan out N candidate specs
     specs: list[str] = []
     for i in range(n):
         text, call = builder.complete(
-            f"Idea: {idea.intent}\nSuccess: {idea.success}\nCandidate #{i+1}. Write the spec.",
+            f"Idea: {idea.intent}\nSuccess: {idea.success}{context}\nCandidate #{i+1}. Write the spec.",
             max_tokens=max_tokens, system=_SPEC_SYS,
         )
         specs.append(text.strip())
@@ -87,7 +88,7 @@ def run_rung1(idea: Idea, anchor: Anchor, builder: Builder, judge: Judge,
     )
     calls.append(ccall)
     revised, vcall = builder.complete(
-        f"Idea: {idea.intent}\nSuccess: {idea.success}\n\nOriginal spec:\n{specs[top]}\n\n"
+        f"Idea: {idea.intent}\nSuccess: {idea.success}{context}\n\nOriginal spec:\n{specs[top]}\n\n"
         f"Reviewer critique:\n{ctext}\n\nRewrite the spec addressing the critique. Keep it tight.",
         max_tokens=max_tokens, system=_SPEC_SYS,
     )

@@ -84,6 +84,22 @@ autonomy_demote:              # the ledger's demote trigger (P1 defines, P3 butt
   action: tighten_one_step    # ...drops that rung's dial one step and notifies the gatekeeper
 
 altitude_allowed: [ticket, feature]   # units of work rung-4 may own in this instance (no migration)
+
+# ── VESSEL context packs (V3) ─────────────────────────────────────────────────
+# A vessel is grounding, NOT a dials layer (Ng's cut): what surface an expedition works +
+# the standards/paths it explores against. Consumed by admission, feeder, and rung-1/2 prompts.
+default_vessel: acme-demo
+vessels:
+  - name: acme-demo
+    kind: app
+    description: >-
+      The Acme demo app — the storefront + inventory-admin surface the fidelity ladder
+      builds against (product pages, the restock button, inventory tables). Small on purpose:
+      it exists to exercise the ladder end-to-end, not to be a real product.
+    paths: [demo-app/]
+    standards:
+      - "a11y: axe-clean on changed surfaces"
+      - "use @metatoy/bootstrap-styled components"
 ```
 
 ## Cascade rule

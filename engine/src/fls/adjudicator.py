@@ -58,13 +58,16 @@ def _anchor_summary(a: Anchor, anchor_text: str) -> str:
     return f"{header}\nAllowed altitudes: {a.altitude_allowed}"
 
 
-def adjudicate(idea: Idea, anchor: Anchor, anchor_text: str, judge: Judge) -> Judgment:
+def adjudicate(idea: Idea, anchor: Anchor, anchor_text: str, judge: Judge,
+               grounding: str = "") -> Judgment:
     # cheap deterministic pre-check: altitude must be allowed (no LLM spend if it fails)
     if idea.altitude not in anchor.altitude_allowed:
         return Judgment(Verdict.dock,
                         f"altitude '{idea.altitude}' not in allowed {anchor.altitude_allowed}")
+    context = f"CONTEXT:\n{grounding}\n\n" if grounding.strip() else ""
     prompt = (
         f"ANCHOR:\n{_anchor_summary(anchor, anchor_text)}\n\n"
+        f"{context}"
         f"IDEA #{idea.number}\nIntent: {idea.intent}\nSuccess: {idea.success}\n"
         f"Altitude: {idea.altitude}\nSource: {idea.source}\n\n"
         "Does this trace to the ANCHOR? Reply with the JSON object only."
