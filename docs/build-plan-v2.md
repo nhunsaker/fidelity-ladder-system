@@ -148,6 +148,16 @@ Figma-plugin re-skin demo beat). Components styled exclusively `var(--token, fal
 console edit opens a real PR · kill switch parks a live expedition · axe-core clean (the
 a11y non-negotiable) · Playwright walkthrough of all three flows (sorb-test-ui harness).
 
+> **✅ V2-P3 DONE 2026-08-13** (PR #3, CI green, suite 99🟢). Deployed:
+> **admin.fidelity-ladder-system.n8plusus.com** (v1 lens at /v1/). Vite+React+JSDoc,
+> @sorb/leaf SorbProvider delivering Primer tokens; design 2b home + 1c stepper wizards.
+> Verified against the LIVE harness: wizard file→real nano verdict rendered · ANCHOR console
+> live pydantic validate → honest simulated-PR (token pending) · kill switch #202
+> `parked | killed by nhunsaker` · **axe-core clean ×6 routes (wcag2a+aa)** · source badge
+> shows live-vs-fixtures honestly. Found+fixed live: /ideas persisted only to ledger, not the
+> wall. Note: real-PR-opening + issue-mirroring go fully live with the founder's App token
+> (github-app-setup.md); Playwright flow-walkthrough script = follow-up nicety.
+
 ### V2-P4 — Acme on bootstrap-styled
 1. Rebuild the Acme demo app as a small React app using `@metatoy/bootstrap-styled@1.0.0`
    (neutral "Acme" branding — the library stays Sorb-free per its standing rule; consuming it
