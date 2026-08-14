@@ -1,10 +1,22 @@
 {
   "name": "acme-demo-app",
   "private": true,
-  "version": "0.0.1",
-  "description": "Neutral Acme app (Primer) — the target expeditions modify. Feature flags in flags.json.",
+  "version": "0.1.0",
+  "description": "Neutral Acme app — the target expeditions modify. Built on @metatoy/bootstrap-styled; feature flags in flags.json (rung-5 ships changes flag-OFF in prod until sign-off).",
   "type": "module",
-  "scripts": { "dev": "vite", "build": "vite build", "test": "vitest run" },
-  "dependencies": { "@primer/react": "^37", "react": "^18", "react-dom": "^18" },
-  "devDependencies": { "vite": "^5", "vitest": "^2" }
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@metatoy/bootstrap-styled": "^1.0.0",
+    "react": "^18",
+    "react-dom": "^18",
+    "styled-components": "^6"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^6",
+    "vite": "^8"
+  }
 }
