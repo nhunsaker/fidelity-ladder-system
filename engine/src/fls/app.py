@@ -44,6 +44,19 @@ class Deps:
 deps = Deps()
 app = FastAPI(title="Fidelity Ladder System — engine", version="0.1.0")
 
+# CORS: the admin UI is a browser client on its own origin. Explicit allowlist — the admin
+# domain + local dev; never a wildcard (the writes are gated, but the surface stays narrow).
+from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://admin.fidelity-ladder-system.n8plusus.com",
+        "http://localhost:8792", "http://localhost:8791",
+    ],
+    allow_methods=["GET", "POST"], allow_headers=["content-type"],
+)
+
 
 @app.on_event("startup")
 def _prod_init() -> None:
@@ -128,7 +141,101 @@ async def file_idea(request: Request) -> dict:
                 source=body.get("source", "manual"))
     verdict, reason = on_idea(idea, _anchor(), ANCHOR_PATH.read_text(), deps.judge,
                               deps.store.ledger())
+    # persist the expedition so the wall shows it (same mapping the webhook path uses)
+    from fls.anchor import Verdict
+    from fls.expedition import CLIMBING, DOCKED, NEEDS_HUMAN, Expedition
+    status = (CLIMBING if verdict == Verdict.admit
+              else DOCKED if verdict == Verdict.dock else NEEDS_HUMAN)
+    deps.store.save(Expedition(idea.number, idea, 2 if verdict == Verdict.admit else 0,
+                               status=status, reason=None if verdict == Verdict.admit else reason))
     return {"number": idea.number, "verdict": verdict.value, "reason": reason}
+
+
+@app.post("/expeditions/{number}/kill")
+async def kill_expedition(number: int, request: Request) -> dict:
+    """The kill switch — parks an expedition. Fail-closed: requires a NAMED actor; the kill
+    lands in the ledger under their name."""
+    body = await request.json()
+    actor = (body.get("actor") or "").strip()
+    if not actor:
+        raise HTTPException(400, "kill requires a named actor (gate is non-bypassable)")
+    rec = deps.store.get(number)
+    if rec is None:
+        raise HTTPException(404, f"no expedition {number}")
+    from fls.expedition import PARKED
+    from fls.github_surface import _rehydrate
+    from fls.ledger import Decision
+    from fls.store import RUNG_NAMES
+    rung = RUNG_NAMES.index(rec["rung"]) if rec["rung"] in RUNG_NAMES else 0
+    e = _rehydrate(rec, rung, PARKED)
+    e.reason = f"killed by {actor}: {body.get('reason') or 'no reason given'}"
+    deps.store.save(e)
+    import time as _t
+    deps.store.ledger().record(Decision(number, rec["rung"], "kill", f"kill:{actor}", 0.0,
+                                        human_responded_at=_t.time()))
+    return {"number": number, "status": "parked", "by": actor}
+
+
+@app.post("/anchor/validate")
+async def anchor_validate(request: Request) -> dict:
+    """Schema-validate proposed console edits against the FULL constitution (pydantic)."""
+    from pydantic import ValidationError
+
+    from fls.anchor import apply_anchor_edits
+    body = await request.json()
+    try:
+        apply_anchor_edits(ANCHOR_PATH.read_text(), body.get("section", ""),
+                           body.get("edits", {}))
+        return {"valid": True, "errors": []}
+    except ValidationError as e:
+        return {"valid": False,
+                "errors": [f"{'.'.join(str(x) for x in err['loc'])}: {err['msg']}"
+                           for err in e.errors()]}
+    except ValueError as e:
+        return {"valid": False, "errors": [str(e)]}
+
+
+@app.post("/anchor/propose")
+async def anchor_propose(request: Request) -> dict:
+    """Turn validated console edits into a PR — the constitution changes by PR only. With no
+    outbound token the payload is prepared and returned (simulated: nothing pushed), honestly."""
+    import os as _os
+
+    from fls.anchor import apply_anchor_edits
+    body = await request.json()
+    section, edits = body.get("section", ""), body.get("edits", {})
+    try:
+        new_text, _ = apply_anchor_edits(ANCHOR_PATH.read_text(), section, edits)
+    except Exception as e:  # noqa: BLE001 — surface the validation reason
+        raise HTTPException(422, f"invalid edit: {e}") from e
+    branch = f"anchor-edit-{section}"
+    if not _os.environ.get("GITHUB_TOKEN"):
+        return {"simulated": True, "branch": branch, "section": section, "edits": edits,
+                "note": "no outbound token (github-app-setup.md) — payload staged, nothing pushed"}
+    from fls.github_surface import open_anchor_pr
+    pr_url = open_anchor_pr(branch, new_text, section, edits)
+    return {"simulated": False, "branch": branch, "pr_url": pr_url}
+
+
+@app.post("/feeder/run")
+async def feeder_run(request: Request) -> dict:
+    """Trigger one feeder run on the subscription lane. Fail-closed with a reason when the
+    skill-server is unavailable — never pretends."""
+    from fls.feeder import ListSink, run_feeder
+    from fls.llm import SkillServerBuilder, SkillServerError
+    a = _anchor()
+    brainstorm = SkillServerBuilder(shadow_model=a.builder.shadow_model)
+    if not brainstorm.available():
+        return {"triggered": False, "reason": "skill-server key unavailable (fail-closed)"}
+    try:
+        run = run_feeder(a, ANCHOR_PATH.read_text(), brainstorm, ListSink())
+    except SkillServerError as e:
+        return {"triggered": False, "reason": f"skill-server error: {e}"}
+    return {"triggered": True, "proposed": run.proposed, "filed": len(run.filed),
+            "within_envelope": run.within_envelope, "cost_usd": run.cost_usd,
+            "normalized_usd": run.normalized_usd,
+            "ideas": [{"intent": f.candidate.intent, "altitude": f.candidate.altitude}
+                      for f in run.filed]}
 
 
 @app.post("/webhook/github")

@@ -2,12 +2,23 @@
   "name": "fls-admin",
   "private": true,
   "version": "0.0.1",
-  "description": "Fidelity Ladder admin v2 — guided Sorb-pipeline app themed with Primer tokens",
+  "description": "Fidelity Ladder admin v2 \u2014 guided Sorb-pipeline app themed with Primer tokens",
   "type": "module",
   "scripts": {
-    "tokens": "style-dictionary build --config ./sd.config.js"
+    "tokens": "style-dictionary build --config ./sd.config.js",
+    "dev": "pnpm run tokens && vite",
+    "build": "pnpm run tokens && vite build",
+    "preview": "vite preview"
   },
   "devDependencies": {
-    "style-dictionary": "^4.0.0"
+    "@vitejs/plugin-react": "^6.0.5",
+    "axe-core": "^4.13.0",
+    "style-dictionary": "^4.0.0",
+    "vite": "^8.2.1"
+  },
+  "dependencies": {
+    "@sorb/leaf": "^0.2",
+    "react": "^18",
+    "react-dom": "^18"
   }
 }

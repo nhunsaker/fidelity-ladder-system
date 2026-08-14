@@ -18,6 +18,39 @@ from pydantic import BaseModel, Field, field_validator
 _ANCHOR_BLOCK = re.compile(r"```anchor\s*\n(.*?)\n```", re.DOTALL)
 
 
+_SECTION_MAP = {  # console section id -> (yaml key, model field types)
+    "funnel": "funnel",
+    "budgets": "budgets",
+    "demote": "autonomy_demote",
+}
+
+
+def apply_anchor_edits(anchor_text: str, section: str, edits: dict) -> tuple[str, Anchor]:
+    """Apply console edits to the machine block and RE-VALIDATE the whole constitution.
+    Returns (new_anchor_md_text, validated_anchor). Raises ValueError/ValidationError on any
+    invalid edit — the caller never writes an invalid ANCHOR (edits are PRs, never live-pokes).
+    """
+    if section not in _SECTION_MAP:
+        raise ValueError(f"section '{section}' is not console-editable")
+    m = _ANCHOR_BLOCK.search(anchor_text)
+    if not m:
+        raise ValueError("no anchor block")
+    data = yaml.safe_load(m.group(1))
+    target = data.setdefault(_SECTION_MAP[section], {})
+    for k, v in edits.items():
+        if v in (None, ""):
+            continue
+        try:  # numeric coercion (console inputs arrive as strings)
+            v = int(v) if str(v).lstrip("-").isdigit() else float(v)
+        except ValueError:
+            pass
+        target[k] = v
+    validated = Anchor.model_validate(data)  # the whole constitution must still hold
+    new_block = yaml.safe_dump(data, sort_keys=False, allow_unicode=True).rstrip()
+    new_text = anchor_text[: m.start(1)] + new_block + anchor_text[m.end(1):]
+    return new_text, validated
+
+
 def guardrails_prose(anchor_text: str) -> str:
     """The human header of ANCHOR.md (north star + non-negotiables) — everything before the
     machine block. Injected into feeder ideation prompts (P4) so the guardrails shape ideas, not
