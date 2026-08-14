@@ -1,5 +1,5 @@
-// The shared guided-flow shell — design 1c's vertical stepper, the callout-style pattern
-// from the founder's description: 1 pick the work → 2 explain every input → 3 map + validate
+// The shared guided-flow shell — design 1c's vertical stepper, the guided pattern:
+// 1 pick the work → 2 explain every input → 3 map + validate
 // before anything submits. One shell, three flows.
 import React from 'react'
 

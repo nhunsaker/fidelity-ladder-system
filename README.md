@@ -38,5 +38,7 @@ expeditions/         per-expedition artifacts (specs, wireframes, demos)
 - `prod.fidelity-ladder-system.n8plusus.com` — demo app (production env)
 
 ## Status
-P0 (foundations) in progress. See the build plan's phase list and §R (system-design persona
-review record: Wu · Yao · Wang · Chase · Ng).
+Engine complete (rungs 0–5, 99 tests) · three live domains + the harness API
+(`api.fidelity-ladder-system.n8plusus.com`) · admin v2 deployed (React + @sorb/leaf token
+pipeline, Primer paint). Remaining: GitHub App registration (docs/github-app-setup.md) and
+the nightly feeder schedule.
