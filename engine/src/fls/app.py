@@ -44,16 +44,16 @@ class Deps:
 deps = Deps()
 app = FastAPI(title="Fidelity Ladder System — engine", version="0.1.0")
 
-# CORS: the admin UI is a browser client on its own origin. Explicit allowlist — the admin
-# domain + local dev; never a wildcard (the writes are gated, but the surface stays narrow).
+# CORS: explicit allowlist from env (FLS_CORS_ORIGINS, comma-separated) + local dev — never a
+# wildcard. Same-origin /api deployments (deploy.example) need no CORS at all.
+import os as _os  # noqa: E402
+
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 
+_origins = [o.strip() for o in _os.environ.get("FLS_CORS_ORIGINS", "").split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://admin.fidelity-ladder-system.n8plusus.com",
-        "http://localhost:8792", "http://localhost:8791",
-    ],
+    allow_origins=_origins + ["http://localhost:8792"],
     allow_methods=["GET", "POST"], allow_headers=["content-type"],
 )
 

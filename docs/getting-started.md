@@ -50,7 +50,7 @@ lands in the calibration ledger with a human-latency timestamp.
   `AZURE_OPENAI_KEY`). Keep it a *different vendor* from your builders — cross-family judging
   avoids self-preference bias.
 - **Builders:** either the metered lane (`ANTHROPIC_API_KEY`, guarded by the ANCHOR's hard
-  cap) or a self-hosted **skill server** (`FLS_SKILL_SERVER` + `LANGCHAIN_API_KEY`) speaking
+  cap) or a self-hosted **skill server** (`FLS_SKILL_SERVER` + `FLS_SKILL_SERVER_KEY`) speaking
   `POST /invoke/{skill}` with Bearer auth — any server returning `{skill, output}` works.
   The ANCHOR's `builder:` block picks the lane and authorizes (and budgets) fallback.
 

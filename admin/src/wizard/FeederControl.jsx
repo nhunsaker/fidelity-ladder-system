@@ -47,7 +47,7 @@ export default function FeederControl({ data, toast }) {
             idea-issues — where the same admission gate judges them like any human filing.</p>
           <div className="radio-cards">
             <button className="rcard sel"><b>Trigger a run</b><span>On-demand; subscription lane ($0 metered) once the skill-server publishes `complete`.</span></button>
-            <button className="rcard off" disabled><b>Nightly schedule</b><span>Temporal schedule — operator gate, not yet armed.</span></button>
+            <button className="rcard off" disabled><b>Nightly schedule</b><span>Scheduled trigger — operator gate, not yet armed.</span></button>
           </div>
           <div className="wiz-nav"><button className="btn btn-acc" onClick={() => setStep(1)}>Configure →</button></div>
         </>

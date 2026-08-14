@@ -8,7 +8,7 @@ the ANCHOR Claude hard cap so builder spend cannot exceed it even before the con
 Creds resolution (12-factor, env only — no credential store coupling in code):
   - Anthropic: env ANTHROPIC_API_KEY.
   - Azure OpenAI: env AZURE_OPENAI_ENDPOINT + AZURE_OPENAI_KEY.
-  - Skill server: env FLS_SKILL_SERVER (endpoint) + LANGCHAIN_API_KEY (bearer).
+  - Skill server: env FLS_SKILL_SERVER (endpoint) + FLS_SKILL_SERVER_KEY (bearer).
 Local dev may bridge a secret store into env via an untracked script (see
 instance.env.example); the code itself only ever reads the environment.
 """
@@ -193,7 +193,7 @@ class SkillServerBuilder:
     def complete(self, prompt: str, max_tokens: int = 1024, system: str | None = None) -> tuple[str, Call]:
         if not self._key or not self.endpoint:
             raise SkillServerError(
-                "skill server not configured (env FLS_SKILL_SERVER + LANGCHAIN_API_KEY)")
+                "skill server not configured (env FLS_SKILL_SERVER + FLS_SKILL_SERVER_KEY)")
         body: dict = {"prompt": prompt, "max_tokens": max_tokens}
         if system:
             body["system"] = system

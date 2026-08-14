@@ -28,7 +28,7 @@ anchor_text = (ROOT / "ANCHOR.md").read_text()
 
 skill = SkillServerBuilder(shadow_model=anchor.builder.shadow_model)
 if not skill.available():
-    print("skill server not configured (env FLS_SKILL_SERVER + LANGCHAIN_API_KEY) — "
+    print("skill server not configured (env FLS_SKILL_SERVER + FLS_SKILL_SERVER_KEY) — "
           "cannot run the live pass-back. Exiting cleanly.")
     sys.exit(0)
 
