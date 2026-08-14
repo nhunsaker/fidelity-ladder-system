@@ -23,8 +23,11 @@ Concretely, when building a feature:
   docs (deploy.example uses placeholders), no personal or org names beyond git metadata, no
   keychain service names, no `/Users/...` paths, no NAS/infra references. Generic phrasing
   ("a durable-workflow scheduler", "your secret store") is fine.
-- **Grep-gate before any public-main refresh**: `grep -ri "metatoy\|n8plusus\|sorb\|nobrien\|
-  nhunsaker" --exclude-dir=.git` over the tree must come back clean (docs + code + examples).
+- **Grep-gate before any public-main refresh**: `git grep -i "metatoy\|n8plusus\|sorbcloud\|
+  nobrien\|nhunsaker" main` over the publishable tree; every hit must be on the allowlist —
+  **published public npm packages** (`@metatoy/*`, `@sorb/*`) and the **public repo owner
+  handle** in docs/demo transcripts. Anything else (domains, hosts, infra, keychain names,
+  `/Users/` paths, personal names in code) blocks the release.
 - Status surfaces (e.g. `GET /system`) expose **kinds + booleans only** — never secret values.
 
 Rationale: this split IS the product's 12-factor promise ("the code holds mechanisms; your
