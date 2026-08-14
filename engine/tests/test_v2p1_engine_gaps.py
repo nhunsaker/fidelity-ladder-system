@@ -164,3 +164,16 @@ def test_rung3_result_carries_preview_url(tmp_path):
     idea = Idea(101, "x", "y", "feature")
     r = run_rung3(idea, "spec", "wire", StubBuilder(), StubWalkthrough(), str(tmp_path), 101)
     assert r.preview_url == "/preview/101"
+
+
+def test_bounded_context_carries_component_inventory():
+    """V2-P4: rung-4 builders compose from the target app's REAL component library."""
+    from fls.rung4 import BoundedContext
+    ctx = BoundedContext(spec="s", wireframe="w", acceptance_test="t",
+                         component_inventory="Button, Card, Table (from @metatoy/bootstrap-styled)")
+    r = ctx.render()
+    assert "COMPONENT LIBRARY" in r and "bootstrap-styled" in r
+    # inventory can never crowd out the failure feedback (the per-section caps hold)
+    ctx2 = BoundedContext(spec="s", wireframe="w", component_inventory="X" * 10000,
+                          prior_failures=["the-failure-that-steers"])
+    assert "the-failure-that-steers" in ctx2.render()

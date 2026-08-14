@@ -37,8 +37,9 @@ class _FakeClaude:
 
 
 def _skill_builder(monkeypatch, *, text="ok", raises=False):
-    b = SkillServerBuilder(shadow_model="claude-haiku-4-5-20251001")
-    b._key = "test-key"  # bypass keychain
+    b = SkillServerBuilder(shadow_model="claude-haiku-4-5-20251001",
+                           endpoint="https://skill.example.com")
+    b._key = "test-key"  # bypass env lookup
 
     def fake_urlopen(req, timeout=0):
         if raises:
@@ -151,7 +152,7 @@ def test_per_run_pin_keeps_run_on_fallback(monkeypatch):
         return io.BytesIO(_j.dumps({"text": "recovered",
                                     "usage": {"input_tokens": 10, "output_tokens": 5}}).encode())
 
-    primary = SkillServerBuilder()
+    primary = SkillServerBuilder(endpoint="https://skill.example.com")
     primary._key = "k"
     monkeypatch.setattr("fls.llm.urllib.request.urlopen", flaky_urlopen)
     fake = _FakeClaude()

@@ -9,7 +9,7 @@ cadence costs nothing metered; the cost envelope bounds the *shadow* cost (norma
 run can't balloon token usage even when the money column is zero.
 
 Triggers (live-gated, §5): on-demand (run_feeder called directly / MCP studio_trigger_brainstorm)
-and a nightly Temporal schedule on the NAS. The Temporal wiring reports an honest exit status +
+and a nightly schedule on the operator's infrastructure, which reports an honest exit status +
 weekly health line per the durability rules; that infra step is the one remaining live-gated bit.
 """
 from __future__ import annotations

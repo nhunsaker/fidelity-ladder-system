@@ -1,5 +1,5 @@
 {
-  "$description": "Semantic role layer — what admin-v2 components actually consume as var(--token, fallback). References resolve into primitive.json. Names mirror the domain: rung/status/dial are the ladder's own vocabulary.",
+  "$description": "Semantic role layer — what admin components actually consume as var(--token, fallback). References resolve into primitive.json. Names mirror the domain: rung/status/dial are the ladder's own vocabulary.",
   "color": {
     "canvas": { "$value": "{color.gray.0}", "$type": "color" },
     "surface": { "$value": "{color.white}", "$type": "color" },

@@ -11,3 +11,5 @@ expeditions/*/
 !expeditions/.gitkeep
 admin/preview.png
 expeditions/error-analysis/
+scripts/local-env.sh
+expeditions/conv-beat/

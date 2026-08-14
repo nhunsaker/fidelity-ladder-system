@@ -1,14 +1,20 @@
 """P2 verify (REAL): planted-bug expedition -> real verifier catches it -> descend + LESSONS.md
 -> re-climb -> pass -> PR package. Real node:test execution, real git diff. Zero LLM spend
-(scripted builder writes buggy-then-fixed artifact; the VERIFIER machinery is 100% real)."""
-import subprocess, tempfile, textwrap
+(scripted builder writes buggy-then-fixed artifact
+the VERIFIER machinery is 100% real)."""
+import shutil
+import subprocess
+import sys
+import tempfile
+import textwrap
 from pathlib import Path
-import sys; sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+
+from fls.descent import read_lessons
+from fls.llm import Call
 from fls.local_verifier import LocalVerifier
 from fls.rung4 import BoundedContext, run_rung4
-from fls.llm import Call
-from fls.descent import read_lessons
 
 wt = Path(tempfile.mkdtemp(prefix="fls-exp-"))
 LESSONS = wt / "LESSONS.md"
@@ -19,11 +25,13 @@ LESSONS = wt / "LESSONS.md"
     import assert from 'node:assert'
     import { focusSearchFromModal } from './feature.mjs'
     test('cmd-k focuses search even from a modal', () => {
-      if (focusSearchFromModal() !== true) { console.log('ACCEPTANCE_UNMET: cmd-k did not focus search from an open modal'); }
+      if (focusSearchFromModal() !== true) { console.log('ACCEPTANCE_UNMET: cmd-k did not focus search from an open modal')
+      }
       assert.equal(focusSearchFromModal(), true)
     })
 """))
-subprocess.run(["git","init","-q"], cwd=wt); subprocess.run(["git","add","-A"], cwd=wt)
+subprocess.run(["git","init","-q"], cwd=wt)
+subprocess.run(["git","add","-A"], cwd=wt)
 subprocess.run(["git","-c","user.email=a@b.c","-c","user.name=x","commit","-qm","baseline"], cwd=wt)
 
 BUGGY = "export function focusSearchFromModal(){ return false }  // ignores modal state (bug)\n"
@@ -53,5 +61,5 @@ if r2.pr_package:
     print("\n--- PR PACKAGE (excerpt, the <=10-min review bar) ---")
     print(md[:520])
     print(f"\nreal git diff present: {'feature.mjs' in r2.pr_package.diff}")
-print(f"\ncost-per-task (Anthropic): ${round(r1.cost_usd + r2.cost_usd, 4)}  (scripted builder = $0; verifier real)")
-import shutil; shutil.rmtree(wt, ignore_errors=True)
+print(f"\ncost-per-task (Anthropic): ${round(r1.cost_usd + r2.cost_usd, 4)} (scripted builder; verifier real)")
+shutil.rmtree(wt, ignore_errors=True)

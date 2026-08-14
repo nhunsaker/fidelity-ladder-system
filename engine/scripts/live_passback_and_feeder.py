@@ -1,7 +1,7 @@
 """P7 + P4 LIVE driver — §5-gated (runs only when the skill-server is reachable).
 
-P7: run one rung-1 spec via the builder PASS-BACK (SkillServerBuilder → Temporal/LangChain over
-    the local `claude -p` on the NAS; subscription lane, NO API key, usd=0). Then, if an Anthropic
+P7: run one rung-1 spec via the builder PASS-BACK (SkillServerBuilder → a self-hosted
+    remote skill server; subscription lane, NO API key, usd=0). Then, if an Anthropic
     key is present, run the SAME spec via the metered ClaudeBuilder and print a numeric-equivalence
     line (tokens + shadow cost side by side) so the two lanes are comparable.
 P4: run one ANCHOR-governed brainstorm through the skill-server and file the top-N ideas into a
@@ -28,8 +28,8 @@ anchor_text = (ROOT / "ANCHOR.md").read_text()
 
 skill = SkillServerBuilder(shadow_model=anchor.builder.shadow_model)
 if not skill.available():
-    print("skill-server key unavailable (env FLS_SKILL_SERVER_KEY / keychain "
-          "langchain-skill-server-key) — cannot run the live pass-back. Exiting cleanly.")
+    print("skill server not configured (env FLS_SKILL_SERVER + FLS_SKILL_SERVER_KEY) — "
+          "cannot run the live pass-back. Exiting cleanly.")
     sys.exit(0)
 
 idea = Idea(701, "add a keyboard shortcut to focus the search box",

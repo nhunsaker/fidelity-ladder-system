@@ -30,7 +30,7 @@ from fls.expedition import CLIMBING, DOCKED, NEEDS_HUMAN, Expedition
 from fls.ledger import Decision, Ledger
 from fls.store import RUNG_NAMES, ExpeditionStore
 
-REPO = os.environ.get("FLS_REPO", "metatoy/fidelity-ladder-system")
+REPO = os.environ.get("FLS_REPO", "")  # instance config; outbound refuses when unset
 
 
 # ── inbound: signature (fail-closed) ──────────────────────────────────────────
@@ -70,6 +70,8 @@ class RestGitHubClient:
         self.token = self.token or os.environ.get("GITHUB_TOKEN")
 
     def _req(self, method: str, path: str, payload: dict | None = None) -> dict:
+        if not self.repo:
+            raise RuntimeError("FLS_REPO not set — outbound GitHub calls refuse (fail-closed)")
         req = urllib.request.Request(
             f"https://api.github.com/repos/{self.repo}{path}",
             data=json.dumps(payload).encode() if payload is not None else None, method=method,
@@ -207,6 +209,33 @@ def _record_human(ledger: Ledger, number: int, rec: dict, verdict: str, author: 
         human_verdict=f"{verdict}:{author}", judge_cost_usd=0.0,
         gate_opened_at=rec.get("gate_opened_at"), human_responded_at=now,
     ))
+
+
+def open_anchor_pr(branch: str, new_anchor_text: str, section: str, edits: dict,
+                   repo: str = REPO) -> str:
+    """Create branch → commit ANCHOR.md → open the PR (contents API). Requires GITHUB_TOKEN;
+    callers check availability first. Returns the PR html_url."""
+    import base64
+    c = RestGitHubClient(repo=repo)
+    main = c._req("GET", "/git/ref/heads/main")["object"]["sha"]
+    try:
+        c._req("POST", "/git/refs", {"ref": f"refs/heads/{branch}", "sha": main})
+    except Exception:  # noqa: BLE001 — branch may exist from a prior proposal; reuse it
+        pass
+    cur = c._req("GET", f"/contents/ANCHOR.md?ref={branch}")
+    c._req("PUT", "/contents/ANCHOR.md", {
+        "message": f"anchor console: edit {section} ({', '.join(edits)})",
+        "content": base64.b64encode(new_anchor_text.encode()).decode(),
+        "sha": cur["sha"], "branch": branch,
+    })
+    pr = c._req("POST", "/pulls", {
+        "title": f"ANCHOR edit: {section}", "head": branch, "base": "main",
+        "body": f"Proposed from the admin ANCHOR console.\n\nSection `{section}`: "
+                + ", ".join(f"`{k}` → `{v}`" for k, v in edits.items())
+                + "\n\nSchema-validated by the harness; a human reviews and merges — "
+                  "the running system never live-pokes.",
+    })
+    return pr["html_url"]
 
 
 # ── rung-5 deployer backed by real GitHub Deployments ─────────────────────────
