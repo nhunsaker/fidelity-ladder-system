@@ -55,9 +55,12 @@ live-poked), and a kill switch that requires a name.
 
 ## Quickstart (~5 minutes, $0)
 
+Requires **Python ≥3.11** and Node 20+ (for the admin and the rung-4 verifier).
+
 ```bash
 git clone <this repo> && cd fidelity-ladder-system/engine
-python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
+python3.11 -m venv .venv               # or: uv venv
+.venv/bin/pip install -e ".[dev]"
 .venv/bin/python -m pytest -q          # the whole engine, stubbed judges — no keys, no spend
 .venv/bin/uvicorn fls.app:app          # the harness API
 ```
