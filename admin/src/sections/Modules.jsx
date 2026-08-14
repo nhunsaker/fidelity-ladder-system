@@ -94,8 +94,8 @@ export default function Modules({ data }) {
         <Card slot="workers" title="WORKERS" s={slots.workers || {}} />
       </div>
 
-      <p className="note">Choice = ANCHOR (policy) · connection = env (secrets) · status =
-        <code>GET /system</code> (booleans only). Swap any slot by adding an importable module to
+      <p className="note">Choice = ANCHOR (policy) · connection = env (secrets) · status ={' '}
+        <code>GET /system</code> (booleans only). Swap any slot by adding an importable module to{' '}
         <code>FLS_MODULES</code> — one reference implementation per slot ships built-in.</p>
     </div>
   )
