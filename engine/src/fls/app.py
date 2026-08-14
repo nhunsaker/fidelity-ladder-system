@@ -45,6 +45,17 @@ deps = Deps()
 app = FastAPI(title="Fidelity Ladder System — engine", version="0.1.0")
 
 
+@app.on_event("startup")
+def _prod_init() -> None:
+    """Prod wiring: give the harness a real adjudicator when the Azure key is present.
+    Without one, admission fails closed (needs-human) — never a silent admit."""
+    import os as _os
+    if deps.judge is None and _os.environ.get("AZURE_OPENAI_KEY"):
+        from fls.llm import AzureJudge
+        deps.judge = AzureJudge("gpt-5.4-nano")
+        log.info("adjudicator: AzureJudge(gpt-5.4-nano)")
+
+
 def _anchor() -> Anchor:
     return Anchor.load(ANCHOR_PATH)
 
@@ -93,6 +104,19 @@ def lessons() -> list[str]:
     return deps.store.lessons()
 
 
+@app.get("/preview/{number}")
+def preview(number: str) -> Any:
+    """Serve an expedition's rung-3 interactive demo (P2.2 debt: stage…/preview/<id>).
+    `number` is a path-safe expedition id (e.g. 101 or live-101) — never a path."""
+    from fastapi.responses import FileResponse
+    if not number.replace("-", "").isalnum():  # fail-closed on anything path-like
+        raise HTTPException(404, "bad expedition id")
+    demo = deps.root / "expeditions" / number / "demo" / "index.html"
+    if not demo.exists():
+        raise HTTPException(404, f"no demo for expedition {number}")
+    return FileResponse(demo, media_type="text/html")
+
+
 @app.post("/ideas")
 async def file_idea(request: Request) -> dict:
     """File an idea -> run admission (needs deps.judge). Returns the verdict + reasoning."""
@@ -109,8 +133,23 @@ async def file_idea(request: Request) -> dict:
 
 @app.post("/webhook/github")
 async def github_webhook(request: Request) -> dict:
+    """The real round-trip (V2-P2): verify the App's HMAC signature (fail-closed), then map
+    the event onto the harness — admission for issues.opened, /advance /pick /approve commands
+    on comments — and mirror state back to the issue via the outbound client."""
+    import os as _os
+    import time as _time
+
+    from fls.github_surface import NullClient, RestGitHubClient, handle_event, verify_signature
+
+    body = await request.body()
+    secret = _os.environ.get("FLS_WEBHOOK_SECRET")
+    if not verify_signature(secret, body, request.headers.get("X-Hub-Signature-256")):
+        # no secret configured OR bad/missing signature -> refused, never processed on optimism
+        raise HTTPException(403, "webhook signature refused (fail-closed)")
     event = request.headers.get("X-GitHub-Event", "unknown")
     payload = await request.json()
     log.info("github event=%s action=%s", event, payload.get("action"))
-    # P3-live hook: issues.opened/labeled -> file_idea(payload) via the controller
-    return {"received": True, "event": event}
+    client = RestGitHubClient() if _os.environ.get("GITHUB_TOKEN") else NullClient()
+    result = handle_event(event, payload, _anchor(), ANCHOR_PATH.read_text(), deps.judge,
+                          deps.store, deps.store.ledger(), client, now=_time.time())
+    return {"received": True, **result}

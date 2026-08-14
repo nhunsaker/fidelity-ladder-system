@@ -45,6 +45,20 @@ V2 closes those gaps and rebuilds the admin as a best-in-class guided UI:
 3. **Founder approval**: pick one direction (or a blend). HARD GATE — no admin build before this.
 **Verify:** 3 rendered boards screenshot-verified + a picked direction recorded in the spec.
 
+> **✅ V2-P0 DONE 2026-08-13.** Token set built + committed (`admin-v2/tokens/` → Style
+> Dictionary → `variables.css` + `tokens.js`, commit `ae98583`, branch `feat/v2-p0-design`).
+> Three explorations rendered + screenshot-QA'd in Claude Design (project "Fidelity Ladder —
+> Admin v2 Explorations"): 1a dense-console · 1b card-forward · 1c rail-navigation — each =
+> Home + one wizard step on shared fixture data, Primer palette only, artifact chains
+> (issue·demo·PR) per row. **GATE CLEARED — founder picked `1c` Rail navigation** (left rail
+> scaling to ANCHOR console/feeder/calibration; vertical-stepper wizard with map-and-validate).
+> **Refined pick (turn 2, founder 2026-08-13): `2b` — 1c shell + 1a dense rows.** The rail
+> shell for navigation scale, with the list as ONE aligned grid: single scan-line per
+> expedition (# · intent+reason · rung pill · status · artifact chain · $ · action), columns
+> lining up down the page, filter chips + keyboard footer (j/k · ⌘K). ~40% more rows per
+> screen; long titles ellipsis-truncate (the tuned a2 column spec lives in the exploration
+> board's turn 2). V2-P3 builds to **2b**.
+
 ### V2-P1 — Engine gaps (parallel-safe with P0; no UI dependency)
 1. **Prune-early funnel** [Wang#2]: in `engine/src/fls/funnel.py` — judges score cheap partial
    generations (first ~200 chars of each rung-1 candidate) and kill weak branches BEFORE the
@@ -65,6 +79,14 @@ V2 closes those gaps and rebuilds the admin as a best-in-class guided UI:
 human_latency_s · `curl stage…/preview/101` serves the live demo · taxonomy doc with 10-run
 data + lesson-coverage statement. Engine suite stays green, ruff clean.
 
+> **✅ V2-P1 DONE 2026-08-13** (branch `feat/v2-p1-engine`, PR #2, CI green, suite 81🟢).
+> All four verify lines hold: pruned-branch test ✓ · human_latency_s in ledger + /calibration ✓
+> · stage…/preview/101/ live 200 ✓ · `failure-taxonomy.md` (this dir + repo docs/) with the
+> **N=10 A/B**: acceptance-as-code 10/10 vs ablation 8/10 (two contract-misread failures
+> reproducing #101's mode) — the coverage check flagged a real GAP (LESSONS held a raw dump,
+> not a pattern) and the generalized pattern is now appended with the measured numbers.
+> Spend $0.0184 of the $0.60 cap.
+
 ### V2-P2 — Real GitHub surface (the claim becomes true) [P0.5 debt]
 1. **Deploy the harness API on the VM** (uvicorn service + Caddy reverse-proxy on an api
    subdomain or path) — prerequisite for webhooks AND the admin's live API.
@@ -81,6 +103,19 @@ data + lesson-coverage statement. Engine suite stays green, ruff clean.
 **Verify (live):** file a real issue → expedition appears in the store + labels flip as it
 climbs · prod promotion blocked until the founder approves the GitHub Environment review ·
 the harness log shows the signed round-trip.
+
+> **✅ V2-P2 BUILT + DEPLOYED 2026-08-13** (PR #2 w/ P1, CI green, suite 91🟢). Harness LIVE at
+> `api.fidelity-ladder-system.n8plusus.com` (systemd `fls-harness` · uvicorn :8700 · Caddy TLS
+> · VM python3.11 · Azure-judge + webhook-secret env). `github_surface.py`: fail-closed HMAC
+> verify · issues.opened → REAL admission w/ label+comment mirror · /advance /pick /approve
+> (human decisions → ledger WITH latency timestamps) · GitHubEnvDeployer (real Deployments,
+> fails closed). **Verified live:** unsigned 403 · signed issues.opened → real nano **admit**
+> → wall · /advance → rung flip + ledger row · harness /preview/live-101 200.
+> **Honest constraint:** Environments exist but required-reviewer on a PRIVATE repo is
+> plan-gated (422, free org plan) — harness `/approve` gate enforces; **founder decision open:
+> repo public vs GitHub Team plan**. **Founder §5 remaining:** App registration + outbound
+> token — `docs/github-app-setup.md` (~4-min click-path, webhook secret in keychain
+> `fls-webhook-secret`).
 
 ### V2-P3 — Admin v2 (post-P0-gate): the guided Sorb+Primer app
 Stack: **Vite + React 18, JS-only + JSDoc** (`admin-v2/`), `@sorb/leaf@^0.2` from npm (published
