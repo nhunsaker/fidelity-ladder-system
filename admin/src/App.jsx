@@ -1,23 +1,24 @@
-// The 2b shell: 1c rail navigation + hash routing + ⌘K. Sections are lenses over the harness
-// API (live-first, fixtures fallback — the badge says which).
+// The V3 shell: one rail, three grouped areas (Workbench · Anchor · System) + a global
+// "File an idea" action, over the same hash router + ⌘K. Sections are lenses over the harness
+// API (live-first, fixtures fallback — the badge says which). This is re-homing, not a rebuild:
+// every existing section/wizard is reused; three new screens (Inbox · Constitution+Vessels ·
+// Modules) lead each area.
 import React, { useEffect, useState } from 'react'
 import { loadAll } from './api.js'
 import Detail from './sections/Detail.jsx'
 import Home from './sections/Home.jsx'
+import Inbox from './sections/Inbox.jsx'
+import Constitution from './sections/Constitution.jsx'
+import Vessels from './sections/Vessels.jsx'
+import Modules from './sections/Modules.jsx'
 import { Calibration, Lessons } from './sections/Panels.jsx'
 import { Toast } from './ui.jsx'
 import AnchorConsole from './wizard/AnchorConsole.jsx'
 import FeederControl from './wizard/FeederControl.jsx'
 import FileIdea from './wizard/FileIdea.jsx'
 
-const NAV = [
-  ['#/', 'Expeditions'],
-  ['#/file', 'File an idea'],
-  ['#/anchor', 'ANCHOR console'],
-  ['#/feeder', 'Feeder'],
-  ['#/calibration', 'Calibration'],
-  ['#/lessons', 'Lessons'],
-]
+// Old routes that moved — redirect so bookmarks keep working.
+const REDIRECTS = { '#/feeder': '#/system/feeder' }
 
 export default function App() {
   const [route, setRoute] = useState(window.location.hash || '#/')
@@ -30,9 +31,15 @@ export default function App() {
     return () => window.removeEventListener('hashchange', h)
   }, [])
 
-  useEffect(() => { loadAll().then(setData) }, [])
+  const reload = () => loadAll().then(setData)
+  useEffect(() => { reload() }, [])
 
-  // ⌘K -> home + focus the filter row (the "anything" affordance)
+  // legacy-route redirects (old #/feeder -> #/system/feeder)
+  useEffect(() => {
+    if (REDIRECTS[route]) window.location.replace(REDIRECTS[route])
+  }, [route])
+
+  // ⌘K -> inbox + focus its filter (the "anything" affordance)
   useEffect(() => {
     const h = (ev) => {
       if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === 'k') {
@@ -46,42 +53,86 @@ export default function App() {
   }, [])
 
   const say = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3200) }
-  const go = (hash) => () => { window.location.hash = hash }
 
-  if (!data) return <div className="pane"><p className="note">Loading the wall…</p></div>
+  if (!data) return <div className="pane"><p className="note">Loading the workbench…</p></div>
 
+  const sys = data.system?.slots
+  let slotProblems = 0
+  if (sys) {
+    for (const key of ['auth', 'sources', 'workers']) if (!sys[key]?.available) slotProblems++
+    const ideas = sys.ideas || []
+    if (ideas.length && !ideas.some((s) => s.available)) slotProblems++
+  }
   const counts = {
     exp: data.expeditions?.length ?? 0,
     needs: (data.expeditions || []).filter((e) =>
       ['descended', 'await-signoff', 'await-pick', 'needs-human'].includes(e.status)).length,
     lessons: data.lessons?.length ?? 0,
     recs: (data.calibration || []).filter((c) => c.recommendation !== 'hold').length,
+    vessels: data.anchor?.vessels?.length ?? 0,
+    slotProblems,
   }
 
+  const open = (n) => { window.location.hash = `#/exp/${n}` }
   const detail = route.match(/^#\/exp\/(\w[\w-]*)/)
   let pane
-  if (detail) pane = <Detail number={Number(detail[1]) || detail[1]} data={data} toast={say} onBack={go('#/')} />
-  else if (route === '#/file') pane = <FileIdea data={data} toast={say} onDone={go('#/')} />
-  else if (route === '#/anchor') pane = <AnchorConsole data={data} toast={say} />
-  else if (route === '#/feeder') pane = <FeederControl data={data} toast={say} />
-  else if (route === '#/calibration') pane = <Calibration data={data} />
+  if (detail) pane = <Detail number={Number(detail[1]) || detail[1]} data={data} toast={say} onBack={() => { window.location.hash = '#/' }} />
+  else if (route === '#/file') pane = <FileIdea data={data} toast={say} onDone={() => { window.location.hash = '#/' }} />
+  else if (route === '#/wall') pane = <Home data={data} onOpen={open} />
   else if (route === '#/lessons') pane = <Lessons data={data} />
-  else pane = <Home data={data} onOpen={(n) => { window.location.hash = `#/exp/${n}` }} />
+  else if (route === '#/calibration') pane = <Calibration data={data} />
+  else if (route === '#/anchor/console') pane = <AnchorConsole data={data} toast={say} />
+  else if (route === '#/anchor/vessels') pane = <Vessels data={data} />
+  else if (route === '#/anchor/autonomy') pane = <Calibration data={data} autonomy />
+  else if (route === '#/anchor') pane = <Constitution data={data} />
+  else if (route === '#/system/feeder') pane = <FeederControl data={data} toast={say} />
+  else if (route === '#/system') pane = <Modules data={data} />
+  else pane = <Inbox data={data} onOpen={open} toast={say} reload={reload} />
 
-  const wizardRoute = ['#/file', '#/anchor', '#/feeder'].includes(route)
+  // full-bleed wizard layout for the guided flows
+  const wizardRoute = ['#/file', '#/anchor/console', '#/system/feeder'].includes(route)
+
+  const GROUPS = [
+    { head: 'Workbench', badge: counts.needs, badgeClass: 'grp-red', items: [
+      ['#/', 'Inbox', null],
+      ['#/wall', 'Wall', counts.exp],
+      ['#/lessons', 'Lessons', counts.lessons],
+      ['#/calibration', 'Calibration', counts.recs > 0 ? `${counts.recs} rec` : null],
+    ] },
+    { head: 'Anchor', badge: 0, badgeClass: '', items: [
+      ['#/anchor', 'Constitution', null],
+      ['#/anchor/console', 'Console', null],
+      ['#/anchor/vessels', 'Vessels', counts.vessels],
+      ['#/anchor/autonomy', 'Autonomy', counts.recs > 0 ? `${counts.recs} rec` : null],
+    ] },
+    { head: 'System', badge: counts.slotProblems, badgeClass: 'grp-amber', items: [
+      ['#/system', 'Modules', null],
+      ['#/system/feeder', 'Feeder', null],
+    ] },
+  ]
+
+  const isActive = (hash) =>
+    hash === '#/' ? (route === '#/' || route.startsWith('#/exp')) : route === hash
 
   return (
     <div className="shell">
       <nav className="rail" aria-label="Main">
         <div className="brand">🪜 Fidelity Ladder</div>
-        {NAV.map(([hash, label]) => (
-          <a key={hash} className={`nav${route === hash || (hash === '#/' && route.startsWith('#/exp')) ? ' on' : ''}`} href={hash}>
-            {label}
-            {label === 'Expeditions' && <span className="n">{counts.exp}</span>}
-            {label === 'Feeder' && <span className="n">manual</span>}
-            {label === 'Calibration' && counts.recs > 0 && <span className="n">{counts.recs} rec</span>}
-            {label === 'Lessons' && <span className="n">{counts.lessons}</span>}
-          </a>
+        <a className="btn btn-pri rail-file" href="#/file" style={{ textDecoration: 'none' }}>+ File an idea</a>
+        {GROUPS.map((g) => (
+          <React.Fragment key={g.head}>
+            <div className="rail-group">
+              {g.head.toUpperCase()}
+              {g.badge > 0 && <span className={`grp-badge ${g.badgeClass}`}>{g.badge}</span>}
+            </div>
+            {g.items.map(([hash, label, count]) => (
+              <a key={hash} className={`nav${isActive(hash) ? ' on' : ''}`} href={hash}
+                 aria-current={isActive(hash) ? 'page' : undefined}>
+                {label}
+                {count != null && <span className="n">{count}</span>}
+              </a>
+            ))}
+          </React.Fragment>
         ))}
         <div className="rail-foot">slim mode · lens over the GitHub App<br />
           tokens via @sorb/leaf · Primer paint</div>

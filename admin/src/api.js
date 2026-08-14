@@ -7,7 +7,8 @@
 // reference deploy proxies /api/* on the admin host to the harness. No instance URLs in code.
 const BASE = import.meta.env.VITE_FLS_API || '/api' 
 
-/** @typedef {{source: 'live'|'fixtures', expeditions: any[], calibration: any[], lessons: string[], anchor: any}} AdminData */
+/** @typedef {{source: 'live'|'fixtures', expeditions: any[], calibration: any[],
+ *   lessons: string[], anchor: any, system: any, totalCost: number|null}} AdminData */
 
 async function j(path, opts) {
   const r = await fetch(`${BASE}${path}`, opts)
@@ -18,20 +19,22 @@ async function j(path, opts) {
 /** Load everything the admin renders. @returns {Promise<AdminData>} */
 export async function loadAll() {
   try {
-    const [wall, calib, lessons, anchor] = await Promise.all([
-      j('/wall'), j('/calibration'), j('/lessons'), j('/anchor'),
+    const [wall, calib, lessons, anchor, system] = await Promise.all([
+      j('/wall'), j('/calibration'), j('/lessons'), j('/anchor'), j('/system'),
     ])
     return { source: 'live', expeditions: wall, calibration: calib.rungs || [],
-             lessons, anchor }
+             lessons, anchor, system, totalCost: calib.total_cost ?? null }
   } catch {
     const f = await fetch('/fixtures.json').then((r) => r.json())
     return { source: 'fixtures', expeditions: f.expeditions, calibration: f.calibration,
-             lessons: f.lessons, anchor: f.anchor }
+             lessons: f.lessons, anchor: f.anchor, system: f.system || null,
+             totalCost: f.total_cost ?? null }
   }
 }
 
 export const api = {
   base: BASE,
+  system: () => j('/system'),
   expedition: (n) => j(`/expeditions/${n}`),
   thread: (n) => j(`/expeditions/${n}/thread`),
   feedback: (n, body) => j(`/expeditions/${n}/feedback`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }),
