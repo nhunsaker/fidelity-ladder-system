@@ -9,14 +9,19 @@ signal (descend) — this is the auto-advance-with-audit rung's audit.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import tempfile
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from fls.rung3 import WalkthroughResult
 
-SORB_TEST_UI = Path("/Users/nobrien/workspace/metatoy/sorb-test-ui")
+
+def _default_harness_dir() -> Path:
+    """Any directory with a playwright npm install works. Configure via FLS_PLAYWRIGHT_DIR;
+    unset -> the walkthrough reports unavailable (fail-closed, never a fake pass)."""
+    return Path(os.environ.get("FLS_PLAYWRIGHT_DIR", ""))
 
 _SCRIPT = r"""
 const { chromium } = require('playwright');
@@ -51,11 +56,11 @@ const { chromium } = require('playwright');
 
 @dataclass
 class PlaywrightWalkthrough:
-    harness_dir: Path = SORB_TEST_UI
+    harness_dir: Path = field(default_factory=_default_harness_dir)
     timeout: int = 60
 
     def available(self) -> bool:
-        return (self.harness_dir / "node_modules" / "playwright").exists()
+        return bool(str(self.harness_dir)) and (self.harness_dir / "node_modules" / "playwright").exists()
 
     def run(self, demo_path: str, acceptance: str) -> WalkthroughResult:
         if not self.available():
