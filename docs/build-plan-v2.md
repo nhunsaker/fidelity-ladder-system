@@ -104,6 +104,19 @@ data + lesson-coverage statement. Engine suite stays green, ruff clean.
 climbs · prod promotion blocked until the founder approves the GitHub Environment review ·
 the harness log shows the signed round-trip.
 
+> **✅ V2-P2 BUILT + DEPLOYED 2026-08-13** (PR #2 w/ P1, CI green, suite 91🟢). Harness LIVE at
+> `api.fidelity-ladder-system.n8plusus.com` (systemd `fls-harness` · uvicorn :8700 · Caddy TLS
+> · VM python3.11 · Azure-judge + webhook-secret env). `github_surface.py`: fail-closed HMAC
+> verify · issues.opened → REAL admission w/ label+comment mirror · /advance /pick /approve
+> (human decisions → ledger WITH latency timestamps) · GitHubEnvDeployer (real Deployments,
+> fails closed). **Verified live:** unsigned 403 · signed issues.opened → real nano **admit**
+> → wall · /advance → rung flip + ledger row · harness /preview/live-101 200.
+> **Honest constraint:** Environments exist but required-reviewer on a PRIVATE repo is
+> plan-gated (422, free org plan) — harness `/approve` gate enforces; **founder decision open:
+> repo public vs GitHub Team plan**. **Founder §5 remaining:** App registration + outbound
+> token — `docs/github-app-setup.md` (~4-min click-path, webhook secret in keychain
+> `fls-webhook-secret`).
+
 ### V2-P3 — Admin v2 (post-P0-gate): the guided Sorb+Primer app
 Stack: **Vite + React 18, JS-only + JSDoc** (`admin-v2/`), `@sorb/leaf@^0.2` from npm (published
 0.2.1), `pnpm install --ignore-workspace` (standalone-repo gotcha). `SorbProvider` wired with the
