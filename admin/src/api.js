@@ -33,6 +33,8 @@ export async function loadAll() {
 export const api = {
   base: BASE,
   expedition: (n) => j(`/expeditions/${n}`),
+  thread: (n) => j(`/expeditions/${n}/thread`),
+  feedback: (n, body) => j(`/expeditions/${n}/feedback`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }),
   fileIdea: (body) => j('/ideas', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }),
   kill: (n, body) => j(`/expeditions/${n}/kill`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }),
   anchorValidate: (body) => j('/anchor/validate', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }),
