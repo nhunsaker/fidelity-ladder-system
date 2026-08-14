@@ -52,7 +52,12 @@ V2 closes those gaps and rebuilds the admin as a best-in-class guided UI:
 > Home + one wizard step on shared fixture data, Primer palette only, artifact chains
 > (issue·demo·PR) per row. **GATE CLEARED — founder picked `1c` Rail navigation** (left rail
 > scaling to ANCHOR console/feeder/calibration; vertical-stepper wizard with map-and-validate).
-> V2-P3 builds to 1c.
+> **Refined pick (turn 2, founder 2026-08-13): `2b` — 1c shell + 1a dense rows.** The rail
+> shell for navigation scale, with the list as ONE aligned grid: single scan-line per
+> expedition (# · intent+reason · rung pill · status · artifact chain · $ · action), columns
+> lining up down the page, filter chips + keyboard footer (j/k · ⌘K). ~40% more rows per
+> screen; long titles ellipsis-truncate (the tuned a2 column spec lives in the exploration
+> board's turn 2). V2-P3 builds to **2b**.
 
 ### V2-P1 — Engine gaps (parallel-safe with P0; no UI dependency)
 1. **Prune-early funnel** [Wang#2]: in `engine/src/fls/funnel.py` — judges score cheap partial
