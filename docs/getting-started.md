@@ -35,10 +35,40 @@ block is machine-read. Every knob is documented in
 2. The issue template ([.github/ISSUE_TEMPLATE/expedition.yml](../.github/ISSUE_TEMPLATE/expedition.yml))
    is the manual door — one issue = one expedition.
 3. Create a GitHub App on your org: webhook URL → `https://<your-harness>/webhook/github`,
-   a webhook secret (becomes `FLS_WEBHOOK_SECRET`), permissions Issues RW + Deployments RW,
-   events `Issues` + `Issue comment`. Install it on the repo.
-4. Outbound token: an App installation token or a fine-grained PAT (Issues RW + Deployments
-   RW) → `GITHUB_TOKEN`. Set `FLS_REPO=owner/repo`.
+   a webhook secret (becomes `FLS_WEBHOOK_SECRET` — the two must match), permissions
+   **Issues RW + Deployments RW**, events **Issues + Issue comment**. Then **install it on the
+   repo** — creating the App is not enough; webhook delivery only starts after Install App →
+   your repo. *(GitHub will prompt "you must generate a private key to install" — you can skip
+   it. The private key only matters for the App-token path in step 4b.)*
+4. Outbound token (how the harness posts labels + verdict comments back). Two separate objects —
+   the App *receives* webhooks; this token *writes back*:
+   - **(a) Fine-grained PAT** (quickest): Settings → Developer settings → Fine-grained tokens;
+     resource owner = your org, only the ladder repo, Issues RW + Deployments RW. Becomes
+     `GITHUB_TOKEN`. Note: comments will post **as the token's owner**.
+   - **(b) App installation token** (bot identity): mint via the App's private key + JWT and
+     refresh ~hourly into the same `GITHUB_TOKEN` (a separate minter process — keep the private
+     key out of the harness). Comments post as `<your-app>[bot]`; the right posture for shared
+     or public instances.
+
+   Deliver the token to the server via **stdin, never argv** (it leaks into `ps` and shell
+   history otherwise):
+   ```bash
+   read -rs TOKEN   # paste, or pipe from your secret store
+   printf 'GITHUB_TOKEN=%s\n' "$TOKEN" >> <install-dir>/.env && unset TOKEN
+   ```
+   Set `FLS_REPO=owner/repo` in the same env.
+5. **Verify before opening an issue** — three quick checks, then the live round-trip:
+   ```bash
+   curl -s -H "Authorization: Bearer $TOKEN" -o /dev/null -w "%{http_code}\n" \
+     https://api.github.com/repos/<owner>/<repo>          # 200 = token sees the repo
+   curl -s https://<your-harness>/health                   # {"status":"ok"}
+   curl -s -o /dev/null -w "%{http_code}\n" -X POST \
+     https://<your-harness>/webhook/github -d '{}'         # 403 = fail-closed working
+   ```
+   Then open an issue with the expedition template: within seconds you should see admission run,
+   `rung:*`/`dial:*` (or `docked`) labels land, and a verdict comment. Comment `/advance` and
+   watch the rung label flip. **If nothing happens**, the usual cause is the App was created but
+   never installed on the repo; second most common is a webhook-secret mismatch (deliveries 403).
 
 The webhook is **HMAC-verified and fail-closed**: unsigned or unconfigured requests get a 403,
 always. The human protocol is issue comments: `/advance` · `/pick N` · `/approve` — every one
