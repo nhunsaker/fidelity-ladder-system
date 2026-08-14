@@ -1,4 +1,4 @@
-/* admin-v2 — design 2b (1c rail shell + 1a dense grid rows).
+/* admin — design 2b (1c rail shell + 1a dense grid rows).
    Every color/radius/space reads a Sorb-delivered token: var(--token, fallback).
    Fallbacks mirror tokens.js so the app renders even before SorbProvider applies. */
 

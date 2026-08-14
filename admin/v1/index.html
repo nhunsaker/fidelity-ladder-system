@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en" data-color-mode="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fidelity Ladder — Admin</title>
+<style>
+  /* Primer-inspired, self-contained (no build step, deployable as a static site). */
+  :root{
+    --fg:#1f2328; --muted:#59636e; --line:#d1d9e0; --bg:#ffffff; --canvas:#f6f8fa;
+    --accent:#0969da; --green:#1a7f37; --amber:#9a6700; --red:#cf222e; --purple:#8250df;
+    --radius:6px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+    color:var(--fg);background:var(--canvas)}
+  header{background:var(--bg);border-bottom:1px solid var(--line);padding:12px 20px;display:flex;
+    align-items:center;gap:12px;position:sticky;top:0;z-index:2}
+  header .logo{font-weight:600}
+  header .sub{color:var(--muted);font-size:12px}
+  nav{display:flex;gap:4px;margin-left:auto;flex-wrap:wrap}
+  nav a{color:var(--muted);text-decoration:none;padding:4px 10px;border-radius:var(--radius);font-size:13px}
+  nav a:hover{background:var(--canvas)}
+  main{max-width:1080px;margin:0 auto;padding:20px}
+  h2{font-size:16px;margin:28px 0 4px}
+  .note{color:var(--muted);font-size:12.5px;margin:0 0 12px}
+  .card{background:var(--bg);border:1px solid var(--line);border-radius:var(--radius);margin-bottom:10px}
+  .row{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border-bottom:1px solid var(--line)}
+  .card .row:last-child{border-bottom:0}
+  .grow{flex:1;min-width:0}
+  .title{font-weight:600}
+  .reason{color:var(--muted);font-size:12.5px;margin-top:2px}
+  .label{display:inline-block;font-size:11px;font-weight:600;border-radius:20px;padding:1px 8px;border:1px solid var(--line);white-space:nowrap}
+  .rung{background:#ddf4ff;border-color:#54aeff33;color:#0550ae}
+  .dial{background:#fbefff;border-color:#e0a3ff33;color:var(--purple)}
+  .st-await-signoff{background:#fff8c5;border-color:#eac54f33;color:var(--amber)}
+  .st-await-pick{background:#dafbe1;border-color:#4ac26b33;color:var(--green)}
+  .st-descended{background:#ffebe9;border-color:#ff818266;color:var(--red)}
+  .st-docked{background:#eaeef2;color:var(--muted)}
+  .spent{font-variant-numeric:tabular-nums;color:var(--muted);font-size:12.5px}
+  .btn{font-size:12px;border:1px solid var(--line);background:var(--bg);border-radius:var(--radius);
+    padding:3px 10px;cursor:pointer;color:var(--fg)}
+  .btn.primary{background:var(--green);border-color:var(--green);color:#fff}
+  .wall{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+  .tile{background:var(--bg);border:1px solid var(--line);border-radius:var(--radius);padding:10px}
+  .ladder{display:flex;gap:3px;margin-top:8px}
+  .step{flex:1;height:6px;border-radius:3px;background:var(--line)}
+  .step.on{background:var(--accent)}
+  .step.desc{background:var(--red)}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:8px 12px;border-bottom:1px solid var(--line)}
+  th{color:var(--muted);font-weight:600;font-size:12px}
+  .rec-tighten{color:var(--red);font-weight:600}
+  .rec-eligible-to-loosen{color:var(--green);font-weight:600}
+  .lessons li{color:var(--muted);margin-bottom:4px}
+  footer{color:var(--muted);font-size:11.5px;text-align:center;padding:24px}
+  /* action modal — the lens for what an action posts through the GitHub App */
+  .overlay{position:fixed;inset:0;background:rgba(31,35,40,.45);display:none;z-index:5}
+  .overlay.open{display:flex;align-items:flex-start;justify-content:center;padding-top:9vh}
+  .modal{background:var(--bg);border:1px solid var(--line);border-radius:var(--radius);
+    width:min(560px,92vw);box-shadow:0 8px 24px rgba(31,35,40,.2)}
+  .modal .m-head{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--line);font-weight:600}
+  .modal .m-body{padding:14px 16px;font-size:13px}
+  .modal .m-body .lesson{background:var(--canvas);border:1px solid var(--line);border-radius:var(--radius);
+    padding:10px 12px;margin:10px 0;color:var(--fg)}
+  .modal .m-foot{display:flex;gap:8px;justify-content:flex-end;padding:12px 16px;border-top:1px solid var(--line)}
+  .modal .proto{color:var(--muted);font-size:12px}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--fg);color:#fff;
+    padding:8px 14px;border-radius:var(--radius);font-size:12.5px;opacity:0;transition:opacity .2s;z-index:6;pointer-events:none}
+  .toast.show{opacity:1}
+</style>
+</head>
+<body>
+<header>
+  <span class="logo">🪜 Fidelity Ladder</span>
+  <span class="sub">admin · slim mode · a lens over the GitHub App protocol</span>
+  <nav>
+    <a href="#inbox">Gatekeeper inbox</a><a href="#wall">Wall of ladders</a>
+    <a href="#autonomy">Autonomy</a><a href="#lessons">Lessons</a>
+  </nav>
+</header>
+<main>
+  <section id="inbox">
+    <h2>Gatekeeper inbox</h2>
+    <p class="note">What needs your judgment — ranked by information value (disagreement, novelty, budget), not recency. Actions route through the GitHub App, the single protocol.</p>
+    <div class="card" id="inbox-list"></div>
+  </section>
+
+  <section id="wall">
+    <h2>Wall of ladders</h2>
+    <p class="note">Every expedition, its rung, dial, and budget burn. A team's whole bet portfolio at a glance.</p>
+    <div class="wall" id="wall-grid"></div>
+  </section>
+
+  <section id="autonomy">
+    <h2>Autonomy panel · calibration readout</h2>
+    <p class="note">Judge-vs-human agreement per rung. Loosening a dial needs an earned track record; tightening is always allowed. A human applies the change.</p>
+    <div class="card" style="padding:0"><table id="calib"></table></div>
+  </section>
+
+  <section id="lessons">
+    <h2>LESSONS — durable anti-patterns</h2>
+    <p class="note">Written on descent, read by future rung-1 judges. This is how the system gets smarter across expeditions.</p>
+    <ul class="lessons" id="lessons-list"></ul>
+  </section>
+</main>
+<footer>Fidelity Ladder System · admin.fidelity-ladder-system.n8plusus.com · static lens (reads the harness API in production)</footer>
+
+<div class="overlay" id="overlay">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="m-title">
+    <div class="m-head" id="m-title"></div>
+    <div class="m-body" id="m-body"></div>
+    <div class="m-foot" id="m-foot"></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const RUNGS = ["0-intent","1-spec","2-wireframe","3-demo","4-mvp","5-flagged"];
+const rungIdx = r => RUNGS.indexOf(r);
+
+// information-value score for inbox ranking: needs-attention statuses + budget anomalies first
+function infoValue(e){
+  let s = 0;
+  if(e.status==="descended") s += 5;         // a failure is high-signal
+  if(e.status==="await-signoff") s += 4;     // a prod gate needs you
+  if(e.status==="await-pick") s += 2;
+  if(e.spent > 1.5) s += 1;                   // budget anomaly
+  return s;
+}
+
+function render(data){
+  const exps = data.expeditions;
+
+  // Gatekeeper inbox — only items needing a human, ranked by information value
+  const needsMe = exps.filter(e => ["await-signoff","await-pick","descended"].includes(e.status))
+                      .sort((a,b)=>infoValue(b)-infoValue(a));
+  document.getElementById("inbox-list").innerHTML = needsMe.map(e=>`
+    <div class="row">
+      <div class="grow">
+        <div class="title">#${e.number} · ${e.intent}</div>
+        <div class="reason">${e.reason}</div>
+      </div>
+      <span class="label rung">${e.rung}</span>
+      <span class="label st-${e.status}">${e.status}</span>
+      <span class="spent">$${e.spent.toFixed(2)}</span>
+      ${e.status==="await-signoff" ? `<button class="btn primary" data-act="approve" data-exp="${e.number}">Approve prod</button>`
+        : e.status==="await-pick" ? `<button class="btn" data-act="pick" data-exp="${e.number}">Pick</button>`
+        : `<button class="btn" data-act="lesson" data-exp="${e.number}">Review lesson</button>`}
+    </div>`).join("");
+
+  // Wall of ladders — every expedition as a tile with its rung ladder
+  document.getElementById("wall-grid").innerHTML = exps.map(e=>{
+    const ti = rungIdx(e.target), ci = rungIdx(e.rung);
+    const steps = RUNGS.map((r,i)=>{
+      let cls="step";
+      if(e.status==="descended" && i===ci) cls+=" desc";
+      else if(i<=ci) cls+=" on";
+      return `<div class="${cls}"></div>`;
+    }).join("");
+    return `<div class="tile">
+      <div style="font-weight:600;font-size:12.5px">#${e.number}</div>
+      <div class="reason" style="height:32px;overflow:hidden">${e.intent}</div>
+      <div class="ladder">${steps}</div>
+      <div class="spent" style="margin-top:6px">${e.rung} · $${e.spent.toFixed(2)}</div>
+    </div>`;
+  }).join("");
+
+  // Autonomy / calibration
+  document.getElementById("calib").innerHTML =
+    `<tr><th>rung</th><th>decisions</th><th>agreement</th><th>$/verdict</th><th>recommendation</th><th></th></tr>` +
+    data.calibration.map(c=>`
+      <tr>
+        <td>${c.rung}</td><td>${c.decisions}</td>
+        <td>${(c.agreement*100).toFixed(0)}%</td>
+        <td>$${c.cost_per_verdict.toFixed(4)}</td>
+        <td class="rec-${c.recommendation}">${c.recommendation}</td>
+        <td>${c.recommendation!=="hold" ? `<button class="btn" data-sim="${c.rung} dial ${c.recommendation==="tighten"?"tightened one step":"loosened one step (earned: "+(c.agreement*100).toFixed(0)+"% agreement)"} — recorded in ledger via GitHub App">${c.recommendation==="tighten"?"Tighten dial":"Loosen dial"}</button>`:""}</td>
+      </tr>`).join("");
+
+  document.getElementById("lessons-list").innerHTML =
+    (data.lessons||[]).map(l=>`<li>${l}</li>`).join("");
+}
+
+// ── actions: every button opens a lens on what it would POST through the GitHub App ──
+let DATA = null;
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+function toast(msg){
+  const t = $("toast"); t.textContent = msg; t.classList.add("show");
+  setTimeout(()=>t.classList.remove("show"), 2600);
+}
+function closeModal(){ $("overlay").classList.remove("open"); }
+function openModal(title, body, foot){
+  $("m-title").innerHTML = title; $("m-body").innerHTML = body; $("m-foot").innerHTML = foot;
+  $("overlay").classList.add("open");
+}
+$("overlay").addEventListener("click", e => { if(e.target === $("overlay")) closeModal(); });
+document.addEventListener("keydown", e => { if(e.key === "Escape") closeModal(); });
+
+function expLessons(n){
+  return (DATA.lessons||[]).filter(l => l.includes(`#${n}`));
+}
+
+const ACTIONS = {
+  lesson(e){
+    const ls = expLessons(e.number);
+    openModal(
+      `Descent lesson · #${e.number} ${esc(e.intent)}`,
+      `<div class="reason">${esc(e.reason)}</div>
+       ${ls.length ? ls.map(l=>`<div class="lesson">${esc(l)}</div>`).join("")
+                   : '<div class="lesson">No durable lesson recorded for this expedition yet.</div>'}
+       <p class="proto">On acknowledge, the harness re-queues the climb from the descent target rung
+       with this lesson in the builder's bounded context. Routed as an issue comment via the GitHub App.</p>`,
+      `<button class="btn" data-close>Close</button>
+       <button class="btn primary" data-sim="Re-climb queued for #${e.number} (lesson in context) — posted via GitHub App">Acknowledge &amp; re-climb</button>`
+    );
+  },
+  approve(e){
+    openModal(
+      `Promote to prod · #${e.number} ${esc(e.intent)}`,
+      `<div class="reason">${esc(e.reason)}</div>
+       <p style="margin:10px 0 4px">The gate is non-bypassable: promotion requires a named approver.
+       This flips the <code>prod</code> flag and records you in the ledger.</p>
+       <p><label>Approver&nbsp;<input id="approver" placeholder="your GitHub handle" style="font:inherit;padding:3px 6px;border:1px solid var(--line);border-radius:var(--radius)"></label></p>
+       <p class="proto">Routed as a GitHub Environment approval via the App — the UI never talks to prod directly.</p>`,
+      `<button class="btn" data-close>Close</button>
+       <button class="btn primary" data-approve="${e.number}">Approve promotion</button>`
+    );
+  },
+  pick(e){
+    const kind = e.rung === "2-wireframe" ? "wireframe" : "demo direction";
+    openModal(
+      `Pick a ${kind} · #${e.number} ${esc(e.intent)}`,
+      `<div class="reason">${esc(e.reason)}</div>
+       <p style="margin:10px 0 4px">Pick-of-3 — your pick advances the expedition one rung.</p>
+       <p class="proto">Options render from the expedition's artifacts (issue attachments). Static lens shows the protocol; the pick posts as an issue comment via the GitHub App.</p>`,
+      [1,2,3].map(n=>`<button class="btn" data-sim="Pick #${n} recorded for #${e.number} — advanced to next rung via GitHub App">Option ${n}</button>`).join("")
+      + `<button class="btn" data-close>Close</button>`
+    );
+  },
+};
+
+document.addEventListener("click", ev => {
+  const b = ev.target.closest("button"); if(!b) return;
+  if(b.hasAttribute("data-close")) return closeModal();
+  if(b.hasAttribute("data-sim")){ closeModal(); return toast(b.getAttribute("data-sim")); }
+  if(b.hasAttribute("data-approve")){
+    const who = ($("approver")?.value||"").trim();
+    if(!who) return toast("Refused: promotion requires a named approver (gate is non-bypassable)");
+    closeModal(); return toast(`Prod promotion approved by ${who} — flag flip posted via GitHub App`);
+  }
+  const act = b.getAttribute("data-act");
+  if(act && DATA){
+    const e = DATA.expeditions.find(x => x.number === Number(b.getAttribute("data-exp")));
+    if(e && ACTIONS[act]) ACTIONS[act](e);
+  }
+});
+
+fetch("fixtures.json").then(r=>r.json()).then(d=>{ DATA=d; render(d); })
+  .catch(()=>document.querySelector("main").insertAdjacentHTML("afterbegin",
+    '<p class="note">Could not load fixtures.json — serve this directory over HTTP.</p>'));
+</script>
+</body>
+</html>

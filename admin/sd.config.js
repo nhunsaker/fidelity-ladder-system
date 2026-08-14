@@ -1,4 +1,4 @@
-// Style Dictionary config — the Sorb pipeline's build half for admin-v2.
+// Style Dictionary config — the Sorb pipeline's build half for the admin.
 // Two DTCG tiers (primitive → semantic) merge; two outputs:
 //   variables.css — the CSS custom properties components read via var(--token, fallback)
 //   tokens.js     — flat TokenSet for @sorb/leaf's SorbProvider (the committed set)
