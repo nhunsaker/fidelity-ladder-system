@@ -44,6 +44,14 @@ The webhook is **HMAC-verified and fail-closed**: unsigned or unconfigured reque
 always. The human protocol is issue comments: `/advance` · `/pick N` · `/approve` — every one
 lands in the calibration ledger with a human-latency timestamp.
 
+> **Plan requirement — Environments on private repos.** Environment *protection rules*
+> (required reviewers, wait timers) work on **public repos on every plan**, but on **private
+> repos they need a paid plan** (GitHub Team for orgs / Pro for users; Free = public only).
+> Two gotchas from the field: the API returns a misleading `422 "billing plan"` error rather
+> than a clear message, and **after upgrading, the feature can lag the billing change** —
+> if the 422 persists right after purchase, wait and retry. Until the rule is active, the
+> harness's own `/approve` gate enforces prod promotion regardless (fail-closed either way).
+
 ## 4. Configure judges + builders
 
 - **Adjudicator (judges):** an Azure OpenAI deployment (`AZURE_OPENAI_ENDPOINT` +
