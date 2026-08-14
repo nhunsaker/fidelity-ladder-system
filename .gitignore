@@ -10,3 +10,4 @@ dist/
 expeditions/*/
 !expeditions/.gitkeep
 admin/preview.png
+expeditions/error-analysis/
