@@ -121,7 +121,6 @@ class RungPolicy(BaseModel):
 class Budgets(BaseModel):
     per_expedition_ceiling_usd: float
     claude_api_hard_cap_usd: float
-    azure_resource_group: str
 
 
 class DemoteTrigger(BaseModel):
