@@ -1,10 +1,12 @@
-"""V3-B3 — the four module seams, formalized (not invented).
+"""V3-B3 — the module seams, formalized (not invented).
 
-The system has always had four pluggable seams; this module names them and makes them
+The system has always had pluggable seams; this module names them and makes them
 reflectable + extensible without changing any behavior:
 
   - AUTH    ⇐ github_surface.verify_signature + GITHUB_TOKEN  (inbound HMAC · outbound token)
   - IDEAS   ⇐ feeder.run_feeder / IdeaSink                    (every source enters by one door)
+  - LENSES  ⇐ FLS_MODULES-registered kinds only (P2a)         (managed audit/brainstorm passes
+                                                                over a vessel; files through a sink)
   - SOURCES ⇐ github_surface.GitHubClient + FLS_REPO(/_DEV)   (where expeditions live)
   - WORKERS ⇐ llm.make_builder backends                        (who fulfils builder work)
 
@@ -25,7 +27,7 @@ import importlib
 import logging
 import os
 from dataclasses import asdict, dataclass, field
-from typing import Protocol
+from typing import Literal, Protocol
 
 from fls.feeder import FeederRun, IdeaSink, run_feeder
 from fls.github_surface import REPO, RestGitHubClient, verify_signature
@@ -93,6 +95,26 @@ def _ideas_status(anchor) -> list[dict]:
     return out
 
 
+def _lenses_status(anchor) -> list[dict]:
+    """LENSES is a LIST: every FLS_MODULES-registered lens kind, probed exactly like the IDEAS
+    registry loop. No built-in lens ships in modules.py — a lens kind arrives entirely via
+    FLS_MODULES wiring (mirrors how a studio-private idea source is wired, not baked in)."""
+    out: list[dict] = []
+    for kind, factory in LENSES.items():
+        try:
+            mod = factory()
+            configured = bool(getattr(mod, "configured", lambda: True)())
+            available = bool(getattr(mod, "available", lambda: False)())
+            detail = dict(getattr(mod, "detail", lambda: {})())
+        except Exception as e:  # noqa: BLE001 — an erroring module is an unavailable module
+            configured, available, detail = False, False, {"error": str(e)[:120]}
+        out.append(asdict(ModuleStatus(
+            slot="lenses", kind=kind, configured=configured, available=available,
+            docs_url=_docs("lenses"), detail=detail,
+        )))
+    return out
+
+
 def _sources_status() -> dict:
     """SOURCES: the GitHub repo(s). Repo NAMES are not secrets; the token presence is a boolean."""
     prod = os.environ.get("FLS_REPO") or None
@@ -127,6 +149,7 @@ def describe(anchor) -> dict:
     return {
         "auth": _auth_status(),
         "ideas": _ideas_status(anchor),
+        "lenses": _lenses_status(anchor),
         "sources": _sources_status(),
         "workers": _workers_status(anchor),
     }
@@ -144,6 +167,24 @@ class IdeaSource(Protocol):
     """An idea source — mirrors feeder.run_feeder's contract: it PROPOSES and files through the
     sink (the one door), never admits. Returns a FeederRun."""
     def run(self, anchor, anchor_text: str, sink: IdeaSink) -> FeederRun: ...
+
+
+class Lens(Protocol):
+    """P2a — a managed LENS: an audit/brainstorm pass over a vessel that runs on its own cadence
+    and files everything it finds through the STANDARD door (a sink), exactly like IdeaSource —
+    the lens itself never self-admits or writes directly. Fields describe what the lens is
+    (kind/mode/panel/target_vessel/cadence/sink_label); `run` is the one call the engine makes."""
+    kind: str
+    mode: Literal["generative", "audit-first"]
+    panel: str
+    target_vessel: str
+    cadence: str
+    sink_label: str
+
+    def run(self, anchor, anchor_text: str, snapshot, sink) -> object: ...
+    def configured(self) -> bool: ...
+    def available(self) -> bool: ...
+    def detail(self) -> dict: ...
 
 
 class Source(Protocol):
@@ -213,6 +254,9 @@ def _auth_github_app(secret=None, token=None) -> Auth:
 # kind -> factory registries, pre-populated with the built-ins. Modules extend these.
 WORKERS: dict = {"api": _worker_api, "skill-server": _worker_skill_server}
 IDEAS: dict = {"feeder": _ideas_feeder}
+# LENSES has no built-in — a lens kind (e.g. "design-audit") arrives entirely via FLS_MODULES
+# wiring, same as a studio-private idea source. Empty by default; modules extend this.
+LENSES: dict = {}
 SOURCES: dict = {"github": _source_github}
 AUTH: dict = {"github-app": _auth_github_app}
 
