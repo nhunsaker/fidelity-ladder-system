@@ -15,7 +15,7 @@ from typing import Any
 from fastapi import FastAPI, HTTPException, Request
 
 from fls.adjudicator import Idea
-from fls.anchor import Anchor
+from fls.anchor import Anchor, guardrails_prose
 from fls.calibration import build_report, category_slice
 from fls.controller import on_idea
 from fls.store import ExpeditionStore
@@ -109,13 +109,47 @@ def system() -> dict:
 def anchor() -> dict:
     a = _anchor()
     # version + vessels are additive (V3-B2): the admin Constitution/Vessels screens read them.
-    # North-star prose + non-negotiables stay in ANCHOR.md's human header (not surfaced here yet —
-    # the admin mirrors that prose from a constant; a follow-up can add a /anchor/prose slice).
+    # North-star prose + non-negotiables stay in ANCHOR.md's human header; GET /snapshot (V4)
+    # is where that prose (+ the resolved goal) is surfaced — this route stays machine-only.
     return {"version": a.version, "mode": a.mode, "funnel": a.funnel.__dict__,
             "altitude_allowed": a.altitude_allowed,
             "budgets": a.budgets.__dict__,
             "vessels": [v.model_dump() for v in a.vessels],
             "default_vessel": a.default_vessel}
+
+
+@app.get("/snapshot")
+def snapshot() -> dict:
+    """V4 — a single plain server-side read-union of the same data the admin composites
+    client-side today (admin/src/api.js loadAll() fans out /wall + /calibration + /lessons +
+    /anchor + /system). NO RAG shaping here, just a union of existing reads, plus the two
+    slices that were previously unexposed: `prose` (the north-star/non-negotiables human
+    header — closes the NORTH_STAR duplication app.py's /anchor docstring earmarks) and
+    `goal` (V4 additive; resolved via the default vessel, falling back to the anchor-level
+    goal). Reuses existing accessors only — no new reads, no secrets."""
+    from fls.modules import describe
+    a = _anchor()
+    anchor_text = ANCHOR_PATH.read_text()
+    led = deps.store.ledger()
+    rpt = build_report(led, a)
+    return {
+        "wall": deps.store.wall(),
+        "lessons": deps.store.lessons(),
+        "calibration": {
+            "rungs": [c.__dict__ for c in rpt.rungs],
+            "total_decisions": rpt.total_decisions,
+            "total_cost": rpt.total_cost,
+            "disagreement_categories": category_slice(led),
+        },
+        "anchor": {"version": a.version, "mode": a.mode, "funnel": a.funnel.__dict__,
+                   "altitude_allowed": a.altitude_allowed,
+                   "budgets": a.budgets.__dict__,
+                   "vessels": [v.model_dump() for v in a.vessels],
+                   "default_vessel": a.default_vessel},
+        "system": {"anchor_version": a.version, "slots": describe(a)},
+        "prose": guardrails_prose(anchor_text),
+        "goal": a.resolved_goal(),
+    }
 
 
 @app.get("/wall")

@@ -76,7 +76,6 @@ rungs:                        # per-rung autonomy defaults + cost estimate (USD)
 budgets:
   per_expedition_ceiling_usd: 8.00      # expedition parks visibly at ceiling; never creeps
   claude_api_hard_cap_usd: 100          # console-enforced; builders only; alert at 50
-  azure_resource_group: fidelity-ladder-rg
 
 autonomy_demote:              # the ledger's demote trigger (P1 defines, P3 button reads)
   agreement_threshold: 0.80   # judge-vs-human agreement below this...

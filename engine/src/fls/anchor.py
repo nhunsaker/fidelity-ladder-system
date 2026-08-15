@@ -121,7 +121,6 @@ class RungPolicy(BaseModel):
 class Budgets(BaseModel):
     per_expedition_ceiling_usd: float
     claude_api_hard_cap_usd: float
-    azure_resource_group: str
 
 
 class DemoteTrigger(BaseModel):
@@ -143,6 +142,19 @@ class FeederParams(BaseModel):
     grounding: str = ""                   # V3 grounding pack folded into ideation when set (empty = off)
 
 
+class LensParams(BaseModel):
+    """P2a — a managed lens's ANCHOR-set knobs. Mirrors FeederParams: the lens is fully governed
+    by these; it holds no policy of its own. An ANCHOR with no matching (or no `lenses:` block
+    at all) parses identically and Anchor.lens() falls back to these defaults."""
+    mode: Literal["generative", "audit-first"] = "audit-first"
+    panel: str = ""
+    target_vessel: str = ""
+    cadence: str = "manual"
+    sink_label: str = ""
+    cost_envelope_usd: float = 5.00      # per lens run (bounds shadow/API cost)
+    volume_cap: int = 5                  # top-N findings/ideas filed per run
+
+
 class Vessel(BaseModel):
     """V3 — a context pack sitting between the north star and an expedition (Ng's concrete cut:
     NOT a per-vessel-dials layer). It names the surface being worked (team/app/site/sprint/topic)
@@ -154,6 +166,16 @@ class Vessel(BaseModel):
     paths: list[str] = Field(default_factory=list)
     standards: list[str] = Field(default_factory=list)
     refs: list[str] = Field(default_factory=list)
+    goal: str | None = None    # V4 — purely additive; overrides anchor-level goal when set
+    audit_scope: list[str] = Field(default_factory=list)   # V4 — path globs an audit is confined to;
+    # purely additive — a vessel without it parses identically (see effective_audit_scope)
+
+    def effective_audit_scope(self) -> list[str]:
+        """Effective audit scope: the vessel's own `audit_scope` when set, else its `paths`
+        (so a vessel that already declares paths gets sensible scoping for free), else []."""
+        if self.audit_scope:
+            return self.audit_scope
+        return self.paths
 
 
 class Anchor(BaseModel):
@@ -169,6 +191,8 @@ class Anchor(BaseModel):
     altitude_allowed: list[str] = Field(min_length=1)
     vessels: list[Vessel] = Field(default_factory=list)   # V3 context packs (empty = slim mode)
     default_vessel: str | None = None                     # which vessel an expedition inherits by default
+    goal: str | None = None    # V4 — top-level goal; an ANCHOR without it parses identically
+    lenses: list[dict] = Field(default_factory=list)      # P2a — declared lens instances (kind + params); empty = no lenses configured
 
     @classmethod
     def load(cls, path: str | Path) -> Anchor:
@@ -190,12 +214,29 @@ class Anchor(BaseModel):
             return None
         return next((v for v in self.vessels if v.name == target), None)
 
+    def resolved_goal(self, vessel_name: str | None = None) -> str | None:
+        """Effective goal: the resolved vessel's `goal` overrides the anchor-level `goal` when
+        set; falls back to the anchor goal, then None. Never raises — fail-open like vessel()."""
+        v = self.vessel(vessel_name)
+        if v is not None and v.goal:
+            return v.goal
+        return self.goal
+
     def feeder(self) -> FeederParams:
         """The studio-brainstorm feeder's params (P4), or defaults if no feeder source declared."""
         for src in self.idea_sources:
             if src.get("kind") == "feeder":
                 return FeederParams.model_validate(src.get("params", {}))
         return FeederParams()
+
+    def lens(self, kind: str) -> LensParams:
+        """A declared lens's params (P2a), matched by `kind` in the `lenses:` list, or defaults
+        if absent/no matching entry. Additive/back-compat: an ANCHOR with no `lenses:` block (or
+        no entry for this kind) parses and resolves identically to before this field existed."""
+        for entry in self.lenses:
+            if entry.get("kind") == kind:
+                return LensParams.model_validate(entry.get("params", {}))
+        return LensParams()
 
     def can_tighten(self, current: Dial, proposed: Dial) -> bool:
         """A rung/expedition may only move a dial toward tighter (or equal), never looser."""

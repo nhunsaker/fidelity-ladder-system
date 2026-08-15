@@ -65,6 +65,85 @@ def test_absent_vessel_block_is_backcompat():
     assert a.vessel() is None
 
 
+def test_absent_goal_is_backcompat():
+    data = yaml.safe_load(_ANCHOR_BLOCK.search(ANCHOR_PATH.read_text()).group(1))
+    data.pop("goal", None)
+    a = Anchor.model_validate(data)      # ANCHOR without goal must still validate identically
+    assert a.goal is None
+    assert a.resolved_goal() is None
+
+
+# ── V4: vessel-level audit scope ───────────────────────────────────────────────
+def test_vessel_audit_scope_defaults_to_paths():
+    a = Anchor.load(ANCHOR_PATH)
+    v = a.vessel()                       # default vessel (acme-demo), has paths but no audit_scope
+    assert v.audit_scope == []
+    assert v.paths                       # sanity: the fixture vessel declares paths
+    assert v.effective_audit_scope() == v.paths
+
+
+def test_vessel_audit_scope_overrides_paths():
+    data = yaml.safe_load(_ANCHOR_BLOCK.search(ANCHOR_PATH.read_text()).group(1))
+    for vessel in data["vessels"]:
+        if vessel["name"] == "acme-demo":
+            vessel["audit_scope"] = ["src/pages/LandingPage.jsx", "src/pages/**"]
+    a = Anchor.model_validate(data)
+    v = a.vessel("acme-demo")
+    assert v.effective_audit_scope() == ["src/pages/LandingPage.jsx", "src/pages/**"]
+    assert v.effective_audit_scope() != v.paths
+
+
+def test_absent_audit_scope_is_backcompat():
+    data = yaml.safe_load(_ANCHOR_BLOCK.search(ANCHOR_PATH.read_text()).group(1))
+    for vessel in data["vessels"]:
+        vessel.pop("audit_scope", None)
+    a = Anchor.model_validate(data)      # a vessel block with no audit_scope must still validate identically
+    v = a.vessel()
+    assert v.audit_scope == []
+    assert v.effective_audit_scope() == v.paths
+
+
+# ── P2a: managed lenses seam ───────────────────────────────────────────────────
+def test_lens_block_present_validates_and_resolves():
+    data = yaml.safe_load(_ANCHOR_BLOCK.search(ANCHOR_PATH.read_text()).group(1))
+    data["lenses"] = [{
+        "kind": "design-audit",
+        "params": {
+            "mode": "audit-first",
+            "panel": "design",
+            "target_vessel": "acme-demo",
+            "cadence": "weekly",
+            "sink_label": "lens:design-audit",
+            "cost_envelope_usd": 2.5,
+            "volume_cap": 3,
+        },
+    }]
+    a = Anchor.model_validate(data)
+    params = a.lens("design-audit")
+    assert params.mode == "audit-first"
+    assert params.panel == "design"
+    assert params.target_vessel == "acme-demo"
+    assert params.cadence == "weekly"
+    assert params.sink_label == "lens:design-audit"
+    assert params.cost_envelope_usd == 2.5
+    assert params.volume_cap == 3
+    # a kind not present in the lenses: list resolves to defaults, not an error
+    defaults = a.lens("no-such-kind")
+    assert defaults.mode == "audit-first"
+    assert defaults.target_vessel == ""
+
+
+def test_absent_lenses_block_is_backcompat():
+    data = yaml.safe_load(_ANCHOR_BLOCK.search(ANCHOR_PATH.read_text()).group(1))
+    data.pop("lenses", None)
+    a = Anchor.model_validate(data)      # ANCHOR without lenses: must still validate identically
+    assert a.lenses == []
+    params = a.lens("design-audit")      # fails open to defaults, never raises
+    assert params.mode == "audit-first"
+    assert params.target_vessel == ""
+    assert params.volume_cap == 5
+
+
 # ── grounding assembly ────────────────────────────────────────────────────────
 def test_grounding_sections_and_determinism():
     a = Anchor.load(ANCHOR_PATH)
@@ -95,6 +174,21 @@ def test_grounding_empty_inputs_empty_output():
     a = Anchor.model_validate(data)      # no vessel, no store, no inventory
     assert build_grounding(a) == ""
     assert build_grounding(None) == ""
+
+
+def test_grounding_includes_goal_when_set():
+    data = yaml.safe_load(_ANCHOR_BLOCK.search(ANCHOR_PATH.read_text()).group(1))
+    data.pop("vessels", None)
+    data.pop("default_vessel", None)
+    data["goal"] = "ship the v4 snapshot endpoint"
+    a = Anchor.model_validate(data)
+    g = build_grounding(a)
+    assert "GOAL:\nship the v4 snapshot endpoint" in g
+
+
+def test_grounding_omits_goal_when_unset():
+    a = Anchor.load(ANCHOR_PATH)             # ANCHOR.md fixture carries no goal today
+    assert "GOAL:" not in build_grounding(a)
 
 
 # ── grounding injection (additive; default-empty unchanged) ───────────────────

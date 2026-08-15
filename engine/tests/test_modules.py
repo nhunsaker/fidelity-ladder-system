@@ -27,9 +27,11 @@ def _anchor() -> Anchor:
 # ── describe(): shapes + booleans-only ────────────────────────────────────────
 def test_describe_shapes_all_four_seams():
     slots = modules.describe(_anchor())
-    assert set(slots) == {"auth", "ideas", "sources", "workers"}
-    # ideas is a LIST (manual door + feeder); the others are single status dicts
+    assert set(slots) == {"auth", "ideas", "lenses", "sources", "workers"}
+    # ideas is a LIST (manual door + feeder); lenses is a LIST too (empty w/ no built-in);
+    # the other seams are single status dicts
     assert isinstance(slots["ideas"], list)
+    assert isinstance(slots["lenses"], list)
     kinds = {s["kind"] for s in slots["ideas"]}
     assert kinds == {"manual", "feeder"}
     manual = next(s for s in slots["ideas"] if s["kind"] == "manual")
@@ -87,7 +89,7 @@ def test_system_endpoint(tmp_path):
     assert r.status_code == 200
     data = r.json()
     assert data["anchor_version"] == _anchor().version
-    assert set(data["slots"]) == {"auth", "ideas", "sources", "workers"}
+    assert set(data["slots"]) == {"auth", "ideas", "lenses", "sources", "workers"}
 
 
 # ── registries + the FLS_MODULES import hook ──────────────────────────────────
@@ -146,3 +148,110 @@ def test_example_agent_files_through_listsink(monkeypatch):
     run = agent.run(anchor=None, anchor_text="north star", sink=sink)
     assert len(sink.filed) == 2 and len(run.filed) == 2
     assert not hasattr(sink, "admit")  # no self-admit path exists
+
+
+def test_registered_lens_kinds_surface_in_describe(monkeypatch):
+    """A kind loaded via FLS_MODULES appears in the lenses slot with its own status — mirrors
+    the IDEAS registry loop exactly. LENSES has no built-in, so this is the only way in."""
+    from fls import modules
+
+    class FakeLens:
+        kind = "design-audit"
+        mode = "audit-first"
+        panel = "design"
+        target_vessel = "acme-demo"
+        cadence = "manual"
+        sink_label = "lens:design-audit"
+
+        def configured(self):
+            return True
+        def available(self):
+            return True
+        def detail(self):
+            return {"url": "https://example.test"}
+
+    monkeypatch.setitem(modules.LENSES, "design-audit", FakeLens)
+    try:
+        from pathlib import Path
+
+        from fls.anchor import Anchor
+        a = Anchor.load(Path(__file__).resolve().parents[2] / "ANCHOR.md")
+        slots = modules.describe(a)
+        assert isinstance(slots["lenses"], list)
+        kinds = {s["kind"]: s for s in slots["lenses"]}
+        assert "design-audit" in kinds
+        entry = kinds["design-audit"]
+        assert entry["slot"] == "lenses"
+        assert entry["configured"] is True and entry["available"] is True
+        assert entry["detail"] == {"url": "https://example.test"}
+    finally:
+        modules.LENSES.pop("design-audit", None)
+
+
+def test_lenses_empty_by_default_and_status_reflection_never_leaks(monkeypatch):
+    """No FLS_MODULES-registered lens -> the lenses slot is an empty list (LENSES has no
+    built-in). A registered lens's status reflection is booleans + non-secret detail only —
+    mirrors test_describe_never_leaks_secret_values: env secrets set elsewhere in the process
+    must never appear in the lenses slot's JSON, and a well-behaved lens's detail() (kind/mode/
+    target_vessel — no secrets) is exactly what surfaces."""
+    from fls import modules
+
+    a = _anchor()
+    assert modules.describe(a)["lenses"] == []
+
+    monkeypatch.setenv("FLS_WEBHOOK_SECRET", "SENTINEL_webhook_secret")
+    monkeypatch.setenv("GITHUB_TOKEN", "SENTINEL_github_token")
+
+    class WellBehavedLens:
+        kind = "design-audit"
+        mode = "audit-first"
+        panel = "design"
+        target_vessel = "acme-demo"
+        cadence = "manual"
+        sink_label = "lens:design-audit"
+
+        def configured(self):
+            return True
+        def available(self):
+            return True
+        def detail(self):
+            # non-secret only, by contract: kind/mode/target_vessel — never a key or URL-with-key
+            return {"kind": self.kind, "mode": self.mode, "target_vessel": self.target_vessel}
+
+    monkeypatch.setitem(modules.LENSES, "design-audit", WellBehavedLens)
+    try:
+        blob = json.dumps(modules.describe(a))
+        assert "SENTINEL_webhook_secret" not in blob
+        assert "SENTINEL_github_token" not in blob
+        lenses = {s["kind"]: s for s in modules.describe(a)["lenses"]}
+        assert lenses["design-audit"]["detail"] == {
+            "kind": "design-audit", "mode": "audit-first", "target_vessel": "acme-demo",
+        }
+    finally:
+        modules.LENSES.pop("design-audit", None)
+
+
+def test_registered_idea_kinds_surface_in_describe(monkeypatch):
+    """A kind loaded via FLS_MODULES appears in the ideas slot with its own status."""
+    from fls import modules
+
+    class FakeBrainstorm:
+        def configured(self):
+            return True
+        def available(self):
+            return True
+        def detail(self):
+            return {"url": "https://example.test"}
+
+    monkeypatch.setitem(modules.IDEAS, "temporal-brainstorm", FakeBrainstorm)
+    try:
+        from pathlib import Path
+
+        from fls.anchor import Anchor
+        a = Anchor.load(Path(__file__).resolve().parents[2] / "ANCHOR.md")
+        kinds = {i["kind"]: i for i in modules.describe(a)["ideas"]}
+        assert "temporal-brainstorm" in kinds
+        assert kinds["temporal-brainstorm"]["available"] is True
+        assert kinds["temporal-brainstorm"]["detail"] == {"url": "https://example.test"}
+    finally:
+        modules.IDEAS.pop("temporal-brainstorm", None)

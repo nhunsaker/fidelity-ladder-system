@@ -7,7 +7,7 @@ what's already been tried. `build_grounding` assembles that missing context ONCE
 capped, empty-safe — so admission, the feeder, and rung-1/2 prompts can all inject the same block.
 
 Sections (each omitted entirely when empty — never a placeholder):
-  VESSEL (name/kind/description/standards) → RECENT LESSONS → PRIOR EXPEDITIONS →
+  VESSEL (name/kind/description/standards) → GOAL → RECENT LESSONS → PRIOR EXPEDITIONS →
   COMPONENT LIBRARY → extra. Order is fixed so the same inputs always yield the same text.
 """
 from __future__ import annotations
@@ -32,6 +32,11 @@ def build_grounding(anchor: Anchor | None, store=None, vessel_name: str | None =
         if v.standards:
             vp.append("Standards:\n" + "\n".join(f"- {s}" for s in v.standards))
         parts.append("\n".join(vp))
+
+    if anchor is not None:
+        goal = anchor.resolved_goal(vessel_name)
+        if goal and goal.strip():
+            parts.append("GOAL:\n" + goal.strip())
 
     if store is not None:
         lessons = store.lessons()[-3:]  # most recent 3 (LESSONS.md appends chronologically)
