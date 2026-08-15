@@ -73,6 +73,36 @@ def test_absent_goal_is_backcompat():
     assert a.resolved_goal() is None
 
 
+# ── V4: vessel-level audit scope ───────────────────────────────────────────────
+def test_vessel_audit_scope_defaults_to_paths():
+    a = Anchor.load(ANCHOR_PATH)
+    v = a.vessel()                       # default vessel (acme-demo), has paths but no audit_scope
+    assert v.audit_scope == []
+    assert v.paths                       # sanity: the fixture vessel declares paths
+    assert v.effective_audit_scope() == v.paths
+
+
+def test_vessel_audit_scope_overrides_paths():
+    data = yaml.safe_load(_ANCHOR_BLOCK.search(ANCHOR_PATH.read_text()).group(1))
+    for vessel in data["vessels"]:
+        if vessel["name"] == "acme-demo":
+            vessel["audit_scope"] = ["src/pages/LandingPage.jsx", "src/pages/**"]
+    a = Anchor.model_validate(data)
+    v = a.vessel("acme-demo")
+    assert v.effective_audit_scope() == ["src/pages/LandingPage.jsx", "src/pages/**"]
+    assert v.effective_audit_scope() != v.paths
+
+
+def test_absent_audit_scope_is_backcompat():
+    data = yaml.safe_load(_ANCHOR_BLOCK.search(ANCHOR_PATH.read_text()).group(1))
+    for vessel in data["vessels"]:
+        vessel.pop("audit_scope", None)
+    a = Anchor.model_validate(data)      # a vessel block with no audit_scope must still validate identically
+    v = a.vessel()
+    assert v.audit_scope == []
+    assert v.effective_audit_scope() == v.paths
+
+
 # ── P2a: managed lenses seam ───────────────────────────────────────────────────
 def test_lens_block_present_validates_and_resolves():
     data = yaml.safe_load(_ANCHOR_BLOCK.search(ANCHOR_PATH.read_text()).group(1))

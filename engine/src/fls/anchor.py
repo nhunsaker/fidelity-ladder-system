@@ -168,6 +168,15 @@ class Vessel(BaseModel):
     standards: list[str] = Field(default_factory=list)
     refs: list[str] = Field(default_factory=list)
     goal: str | None = None    # V4 — purely additive; overrides anchor-level goal when set
+    audit_scope: list[str] = Field(default_factory=list)   # V4 — path globs an audit is confined to;
+    # purely additive — a vessel without it parses identically (see effective_audit_scope)
+
+    def effective_audit_scope(self) -> list[str]:
+        """Effective audit scope: the vessel's own `audit_scope` when set, else its `paths`
+        (so a vessel that already declares paths gets sensible scoping for free), else []."""
+        if self.audit_scope:
+            return self.audit_scope
+        return self.paths
 
 
 class Anchor(BaseModel):
