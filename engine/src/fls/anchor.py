@@ -143,6 +143,19 @@ class FeederParams(BaseModel):
     grounding: str = ""                   # V3 grounding pack folded into ideation when set (empty = off)
 
 
+class LensParams(BaseModel):
+    """P2a — a managed lens's ANCHOR-set knobs. Mirrors FeederParams: the lens is fully governed
+    by these; it holds no policy of its own. An ANCHOR with no matching (or no `lenses:` block
+    at all) parses identically and Anchor.lens() falls back to these defaults."""
+    mode: Literal["generative", "audit-first"] = "audit-first"
+    panel: str = ""
+    target_vessel: str = ""
+    cadence: str = "manual"
+    sink_label: str = ""
+    cost_envelope_usd: float = 5.00      # per lens run (bounds shadow/API cost)
+    volume_cap: int = 5                  # top-N findings/ideas filed per run
+
+
 class Vessel(BaseModel):
     """V3 — a context pack sitting between the north star and an expedition (Ng's concrete cut:
     NOT a per-vessel-dials layer). It names the surface being worked (team/app/site/sprint/topic)
@@ -171,6 +184,7 @@ class Anchor(BaseModel):
     vessels: list[Vessel] = Field(default_factory=list)   # V3 context packs (empty = slim mode)
     default_vessel: str | None = None                     # which vessel an expedition inherits by default
     goal: str | None = None    # V4 — top-level goal; an ANCHOR without it parses identically
+    lenses: list[dict] = Field(default_factory=list)      # P2a — declared lens instances (kind + params); empty = no lenses configured
 
     @classmethod
     def load(cls, path: str | Path) -> Anchor:
@@ -206,6 +220,15 @@ class Anchor(BaseModel):
             if src.get("kind") == "feeder":
                 return FeederParams.model_validate(src.get("params", {}))
         return FeederParams()
+
+    def lens(self, kind: str) -> LensParams:
+        """A declared lens's params (P2a), matched by `kind` in the `lenses:` list, or defaults
+        if absent/no matching entry. Additive/back-compat: an ANCHOR with no `lenses:` block (or
+        no entry for this kind) parses and resolves identically to before this field existed."""
+        for entry in self.lenses:
+            if entry.get("kind") == kind:
+                return LensParams.model_validate(entry.get("params", {}))
+        return LensParams()
 
     def can_tighten(self, current: Dial, proposed: Dial) -> bool:
         """A rung/expedition may only move a dial toward tighter (or equal), never looser."""
