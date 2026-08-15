@@ -146,3 +146,28 @@ def test_example_agent_files_through_listsink(monkeypatch):
     run = agent.run(anchor=None, anchor_text="north star", sink=sink)
     assert len(sink.filed) == 2 and len(run.filed) == 2
     assert not hasattr(sink, "admit")  # no self-admit path exists
+
+
+def test_registered_idea_kinds_surface_in_describe(monkeypatch):
+    """A kind loaded via FLS_MODULES appears in the ideas slot with its own status."""
+    from fls import modules
+
+    class FakeBrainstorm:
+        def configured(self):
+            return True
+        def available(self):
+            return True
+        def detail(self):
+            return {"url": "https://example.test"}
+
+    monkeypatch.setitem(modules.IDEAS, "temporal-brainstorm", FakeBrainstorm)
+    try:
+        from fls.anchor import Anchor
+        from pathlib import Path
+        a = Anchor.load(Path(__file__).resolve().parents[2] / "ANCHOR.md")
+        kinds = {i["kind"]: i for i in modules.describe(a)["ideas"]}
+        assert "temporal-brainstorm" in kinds
+        assert kinds["temporal-brainstorm"]["available"] is True
+        assert kinds["temporal-brainstorm"]["detail"] == {"url": "https://example.test"}
+    finally:
+        modules.IDEAS.pop("temporal-brainstorm", None)

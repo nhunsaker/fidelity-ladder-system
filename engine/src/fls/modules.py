@@ -73,6 +73,23 @@ def _ideas_status(anchor) -> list[dict]:
         slot="ideas", kind="feeder",
         configured=has_feeder, available=feeder_available, docs_url=_docs("ideas"),
     )))
+    # Registered (FLS_MODULES) idea kinds surface too — a module the instance loaded is part
+    # of its wiring truth. status() on the factory's product stays cheap/no-network by the
+    # same rule as everything here; a factory that errors reports honestly as unavailable.
+    for kind, factory in IDEAS.items():
+        if kind == "feeder":
+            continue
+        try:
+            mod = factory()
+            configured = bool(getattr(mod, "configured", lambda: True)())
+            available = bool(getattr(mod, "available", lambda: False)())
+            detail = dict(getattr(mod, "detail", lambda: {})())
+        except Exception as e:  # noqa: BLE001 — an erroring module is an unavailable module
+            configured, available, detail = False, False, {"error": str(e)[:120]}
+        out.append(asdict(ModuleStatus(
+            slot="ideas", kind=kind, configured=configured, available=available,
+            docs_url=_docs("ideas"), detail=detail,
+        )))
     return out
 
 
