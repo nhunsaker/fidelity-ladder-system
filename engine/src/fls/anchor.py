@@ -154,6 +154,7 @@ class Vessel(BaseModel):
     paths: list[str] = Field(default_factory=list)
     standards: list[str] = Field(default_factory=list)
     refs: list[str] = Field(default_factory=list)
+    goal: str | None = None    # V4 — purely additive; overrides anchor-level goal when set
 
 
 class Anchor(BaseModel):
@@ -169,6 +170,7 @@ class Anchor(BaseModel):
     altitude_allowed: list[str] = Field(min_length=1)
     vessels: list[Vessel] = Field(default_factory=list)   # V3 context packs (empty = slim mode)
     default_vessel: str | None = None                     # which vessel an expedition inherits by default
+    goal: str | None = None    # V4 — top-level goal; an ANCHOR without it parses identically
 
     @classmethod
     def load(cls, path: str | Path) -> Anchor:
@@ -189,6 +191,14 @@ class Anchor(BaseModel):
         if target is None:
             return None
         return next((v for v in self.vessels if v.name == target), None)
+
+    def resolved_goal(self, vessel_name: str | None = None) -> str | None:
+        """Effective goal: the resolved vessel's `goal` overrides the anchor-level `goal` when
+        set; falls back to the anchor goal, then None. Never raises — fail-open like vessel()."""
+        v = self.vessel(vessel_name)
+        if v is not None and v.goal:
+            return v.goal
+        return self.goal
 
     def feeder(self) -> FeederParams:
         """The studio-brainstorm feeder's params (P4), or defaults if no feeder source declared."""

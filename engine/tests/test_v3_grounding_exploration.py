@@ -65,6 +65,14 @@ def test_absent_vessel_block_is_backcompat():
     assert a.vessel() is None
 
 
+def test_absent_goal_is_backcompat():
+    data = yaml.safe_load(_ANCHOR_BLOCK.search(ANCHOR_PATH.read_text()).group(1))
+    data.pop("goal", None)
+    a = Anchor.model_validate(data)      # ANCHOR without goal must still validate identically
+    assert a.goal is None
+    assert a.resolved_goal() is None
+
+
 # ── grounding assembly ────────────────────────────────────────────────────────
 def test_grounding_sections_and_determinism():
     a = Anchor.load(ANCHOR_PATH)
@@ -95,6 +103,21 @@ def test_grounding_empty_inputs_empty_output():
     a = Anchor.model_validate(data)      # no vessel, no store, no inventory
     assert build_grounding(a) == ""
     assert build_grounding(None) == ""
+
+
+def test_grounding_includes_goal_when_set():
+    data = yaml.safe_load(_ANCHOR_BLOCK.search(ANCHOR_PATH.read_text()).group(1))
+    data.pop("vessels", None)
+    data.pop("default_vessel", None)
+    data["goal"] = "ship the v4 snapshot endpoint"
+    a = Anchor.model_validate(data)
+    g = build_grounding(a)
+    assert "GOAL:\nship the v4 snapshot endpoint" in g
+
+
+def test_grounding_omits_goal_when_unset():
+    a = Anchor.load(ANCHOR_PATH)             # ANCHOR.md fixture carries no goal today
+    assert "GOAL:" not in build_grounding(a)
 
 
 # ── grounding injection (additive; default-empty unchanged) ───────────────────

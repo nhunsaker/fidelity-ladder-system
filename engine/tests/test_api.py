@@ -68,3 +68,41 @@ def test_calibration_and_lessons(tmp_path):
     assert c.get("/lessons").json() == ["(exp #1) make criteria checkable"]
     cal = c.get("/calibration").json()
     assert "rungs" in cal and "disagreement_categories" in cal
+
+
+# ── V4: GET /snapshot — server-side read-union (no RAG shaping) ───────────────
+def test_snapshot_is_the_union_admin_loadall_composites(tmp_path):
+    c = _client(tmp_path)
+    (Path(tmp_path) / "LESSONS.md").write_text("# LESSONS\n\n- (exp #1) make criteria checkable\n")
+    snap = c.get("/snapshot").json()
+    assert set(snap) >= {"wall", "lessons", "calibration", "anchor", "system", "prose", "goal"}
+    # each slice matches its standalone endpoint
+    assert snap["wall"] == c.get("/wall").json()
+    assert snap["lessons"] == c.get("/lessons").json()
+    assert snap["anchor"] == c.get("/anchor").json()
+    assert snap["system"] == c.get("/system").json()
+    cal = c.get("/calibration").json()
+    assert snap["calibration"]["total_decisions"] == cal["total_decisions"]
+    assert snap["calibration"]["disagreement_categories"] == cal["disagreement_categories"]
+
+
+def test_snapshot_exposes_prose_and_goal(tmp_path):
+    c = _client(tmp_path)
+    snap = c.get("/snapshot").json()
+    # prose = the human header (north star + non-negotiables) preceding the machine block
+    assert isinstance(snap["prose"], str) and len(snap["prose"]) > 0
+    assert "```anchor" not in snap["prose"]
+    # the fixture ANCHOR.md carries no `goal:` today -> back-compat, resolves to None
+    assert snap["goal"] is None
+
+
+def test_snapshot_never_leaks_secret_values(tmp_path, monkeypatch):
+    monkeypatch.setenv("FLS_WEBHOOK_SECRET", "SENTINEL_webhook_secret")
+    monkeypatch.setenv("GITHUB_TOKEN", "SENTINEL_github_token")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "SENTINEL_anthropic_key")
+    monkeypatch.setenv("FLS_SKILL_SERVER_KEY", "SENTINEL_skill_key")
+    c = _client(tmp_path)
+    blob = json.dumps(c.get("/snapshot").json())
+    for sentinel in ("SENTINEL_webhook_secret", "SENTINEL_github_token",
+                     "SENTINEL_anthropic_key", "SENTINEL_skill_key"):
+        assert sentinel not in blob
