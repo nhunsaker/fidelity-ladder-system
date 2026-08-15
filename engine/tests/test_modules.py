@@ -162,8 +162,9 @@ def test_registered_idea_kinds_surface_in_describe(monkeypatch):
 
     monkeypatch.setitem(modules.IDEAS, "temporal-brainstorm", FakeBrainstorm)
     try:
-        from fls.anchor import Anchor
         from pathlib import Path
+
+        from fls.anchor import Anchor
         a = Anchor.load(Path(__file__).resolve().parents[2] / "ANCHOR.md")
         kinds = {i["kind"]: i for i in modules.describe(a)["ideas"]}
         assert "temporal-brainstorm" in kinds
