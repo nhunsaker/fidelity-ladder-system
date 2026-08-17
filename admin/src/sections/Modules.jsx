@@ -13,6 +13,7 @@ function StatusChip({ s }) {
 
 function detailLine(slot, s) {
   if (slot === 'sources') {
+    if (s.kind === 'local') return 'local-mode: no GitHub repo configured (set FLS_REPO to switch)'
     const d = s.detail || {}
     return `repo ${d.prod_repo || '— (set FLS_REPO)'}${d.dev_repo ? ` · dev ${d.dev_repo}` : ''}`
   }
@@ -20,7 +21,10 @@ function detailLine(slot, s) {
     const d = s.detail || {}
     return `fallback: ${d.fallback || 'none'}${d.fallback_budget_usd ? ` · budget $${Number(d.fallback_budget_usd).toFixed(2)}/run` : ''}`
   }
-  if (slot === 'auth') return 'inbound HMAC verify + outbound token'
+  if (slot === 'auth') {
+    if (s.kind === 'none') return 'local-mode: no GitHub App configured (no webhook to verify)'
+    return 'inbound HMAC verify + outbound token'
+  }
   return ''
 }
 

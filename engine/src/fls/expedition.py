@@ -15,6 +15,12 @@ from fls.llm import Call
 CLIMBING, PARKED, DOCKED, NEEDS_HUMAN, AWAIT_PICK = (
     "climbing", "parked", "docked", "needs-human", "await-pick",
 )
+# v0.8 Phase 3 — a first-class status for an expedition just rebuilt by `climb.resume_from_ledger`
+# whose trace tail was mid-flight ("climbing", with no terminal checkpoint reached before the
+# harness that held it disappeared). Distinct from CLIMBING so a caller/human can tell "actively
+# being worked" from "reconstructed from a trace, about to resume" — never silently relabeled
+# back to CLIMBING until an actual climb call runs again.
+RESUMING = "resuming"
 
 
 @dataclass
@@ -26,6 +32,7 @@ class Expedition:
     dial: Dial = Dial.human_picks
     status: str = CLIMBING
     spec: str | None = None            # winning revised spec (rung 1)
+    acceptance_stub: str | None = None  # rung-1 machine-checkable criteria (Yao); rung 4 builds against it
     wireframes: list[str] = field(default_factory=list)   # rung 2
     picked_wireframe: int | None = None
     reason: str | None = None          # dock/park/needs-human reason

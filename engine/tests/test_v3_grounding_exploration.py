@@ -51,7 +51,7 @@ def test_vessel_block_parses_and_default_resolves():
     v = a.vessel()                       # default
     assert v is not None and v.kind == "app"
     assert a.vessel("acme-demo") is v or a.vessel("acme-demo").name == "acme-demo"
-    assert any("bootstrap-styled" in s for s in v.standards)
+    assert any("@acme/ui" in s for s in v.standards)
     assert a.vessel("nonexistent") is None
 
 

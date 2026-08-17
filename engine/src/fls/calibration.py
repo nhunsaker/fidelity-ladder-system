@@ -13,6 +13,20 @@ from dataclasses import dataclass, field
 from fls.anchor import Anchor
 from fls.ledger import Ledger
 
+# Mining layer (v0.6 #7) — a snapshotted, frozen-contract read over the same ledger data this
+# module reads. Re-exported here so callers of calibration.py get it without a second import;
+# the implementation lives in the sibling fls.mining module.
+from fls.mining import (  # noqa: F401
+    MiningReport,
+    Mismatch,
+    RungMining,
+    append_snapshot,
+    default_history_path,
+    mine,
+    mine_and_persist,
+    read_history,
+)
+
 
 @dataclass
 class RungCalibration:

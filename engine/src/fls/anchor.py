@@ -82,11 +82,21 @@ class AdjudicatorCost(BaseModel):
     max_calls: int
 
 
+class CouncilConfig(BaseModel):
+    """V6 — knobs for `kind: council`. Only read when the adjudicator kind selects council;
+    an ANCHOR without this block (or with `kind: single-llm`) parses and behaves identically
+    to before this field existed."""
+    size: int = 3                                                  # member judges polled
+    combine: Literal["majority", "unanimous-to-admit"] = "majority"
+    model: str | None = None    # overrides adjudicator.model for every seat; None = inherit
+
+
 class Adjudicator(BaseModel):
-    kind: str
+    kind: str = "single-llm"    # single-llm (v1, default) | council (V6 pluggable adjudicators)
     model: str
     cost: AdjudicatorCost
     output_contract: list[str]
+    council: CouncilConfig = Field(default_factory=CouncilConfig)  # only read when kind == council
 
     @field_validator("output_contract")
     @classmethod
@@ -121,6 +131,8 @@ class RungPolicy(BaseModel):
 class Budgets(BaseModel):
     per_expedition_ceiling_usd: float
     claude_api_hard_cap_usd: float
+    daily_usd: float | None = None   # V6 #3 — optional anchor-level daily cap; None = unbounded
+    # (purely additive; an ANCHOR without it parses identically to before this field existed)
 
 
 class DemoteTrigger(BaseModel):
@@ -155,11 +167,51 @@ class LensParams(BaseModel):
     volume_cap: int = 5                  # top-N findings/ideas filed per run
 
 
+class VesselBudgetOverride(BaseModel):
+    """V6 #3 — a vessel's tighten-only budget override. Both fields optional/additive; an unset
+    field means "inherit the anchor default", never "unbounded"."""
+    daily_usd: float | None = None
+    per_idea_usd: float | None = None
+
+
+class VesselRungPolicyOverride(BaseModel):
+    """V6 #3 — a vessel's tighten-only rung-policy override. `max_rung` caps how far an
+    expedition under this vessel may climb; `est_usd_by_rung` tightens per-rung cost estimates
+    (keyed like `Anchor.rungs`, e.g. "4-mvp", "5-flagged", "5a-staged", "5b-prod")."""
+    max_rung: int | None = None
+    est_usd_by_rung: dict[str, float] = Field(default_factory=dict)
+
+
+class VesselGovernance(BaseModel):
+    """V6 #3 — FROZEN CONTRACT (build-plan-v6.md). An optional per-vessel governance override.
+    Every field cascades **tighten-only** over the anchor defaults via `Anchor.effective_governance`
+    (reusing `Anchor.can_tighten` for dials): a vessel may only make things stricter — lower a
+    budget, lower `max_rung`, move a dial tighter — never loosen past what the anchor allows. A
+    vessel without a `governance:` block parses identically (purely additive, back-compat)."""
+    dials: dict[str, Dial] = Field(default_factory=dict)          # rung-key -> Dial override
+    budget: VesselBudgetOverride | None = None
+    rung_policy: VesselRungPolicyOverride | None = None
+
+
+class EffectiveGovernance(BaseModel):
+    """V6 #3 — the resolved governance for a vessel (or the bare anchor defaults when the vessel
+    has no override / no vessel is named): tighten(anchor_default, vessel_override)."""
+    dials: dict[str, Dial] = Field(default_factory=dict)
+    daily_usd: float | None = None
+    per_idea_usd: float
+    max_rung: int
+    est_usd_by_rung: dict[str, float] = Field(default_factory=dict)
+
+
 class Vessel(BaseModel):
     """V3 — a context pack sitting between the north star and an expedition (Ng's concrete cut:
     NOT a per-vessel-dials layer). It names the surface being worked (team/app/site/sprint/topic)
     plus the grounding an expedition needs to explore concretely — paths, standards, refs. An
-    ANCHOR without a `vessels:` block parses identically (slim mode); the block is purely additive."""
+    ANCHOR without a `vessels:` block parses identically (slim mode); the block is purely additive.
+
+    V6 #3 adds an OPTIONAL `governance` override (see `VesselGovernance`) — still not a general
+    per-vessel-dials layer by default; a vessel only gains dials/budget/rung-policy teeth when it
+    explicitly declares `governance:`, and even then only to tighten, never loosen."""
     name: str
     kind: Literal["team", "app", "site", "sprint", "topic"]
     description: str = ""
@@ -169,6 +221,7 @@ class Vessel(BaseModel):
     goal: str | None = None    # V4 — purely additive; overrides anchor-level goal when set
     audit_scope: list[str] = Field(default_factory=list)   # V4 — path globs an audit is confined to;
     # purely additive — a vessel without it parses identically (see effective_audit_scope)
+    governance: VesselGovernance | None = None   # V6 #3 — purely additive; see VesselGovernance
 
     def effective_audit_scope(self) -> list[str]:
         """Effective audit scope: the vessel's own `audit_scope` when set, else its `paths`
@@ -241,3 +294,73 @@ class Anchor(BaseModel):
     def can_tighten(self, current: Dial, proposed: Dial) -> bool:
         """A rung/expedition may only move a dial toward tighter (or equal), never looser."""
         return DIAL_ORDER.index(proposed) <= DIAL_ORDER.index(current)
+
+    def effective_governance(self, vessel_name: str | None = None) -> EffectiveGovernance:
+        """V6 #3 — resolve effective governance = tighten(anchor_default, vessel_override).
+
+        Anchor defaults: every `rungs` dial, `budgets.per_expedition_ceiling_usd` as the
+        per-idea ceiling, `budgets.daily_usd` as the daily cap (None = unbounded when the
+        anchor hasn't set one), the top of the ladder (`RUNG_FLAG`, imported lazily to avoid a
+        hard funnel.py dependency at module load) as `max_rung`, and each rung's `est_usd`.
+
+        A vessel's `governance` override is applied field-by-field, but ONLY when it tightens:
+        a dial move that isn't `can_tighten`, or a budget/est_usd/max_rung that is larger than
+        the anchor default, is a loosen attempt and is CLAMPED back to the anchor value rather
+        than applied or raised — same fail-closed-safe posture as the rest of this module.
+        Never raises; a vessel with no `governance` block (or no matching vessel) resolves to
+        the bare anchor defaults, byte-for-byte.
+        """
+        from fls.funnel import (
+            RUNG_FLAG,  # local import: anchor.py must not hard-depend on funnel.py
+        )
+
+        eg = EffectiveGovernance(
+            dials={key: policy.dial for key, policy in self.rungs.items()},
+            daily_usd=self.budgets.daily_usd,
+            per_idea_usd=self.budgets.per_expedition_ceiling_usd,
+            max_rung=RUNG_FLAG,
+            est_usd_by_rung={key: policy.est_usd for key, policy in self.rungs.items()},
+        )
+
+        v = self.vessel(vessel_name)
+        if v is None or v.governance is None:
+            return eg
+        gov = v.governance
+
+        for key, proposed in gov.dials.items():
+            current = eg.dials.get(key)
+            if current is None or self.can_tighten(current, proposed):
+                eg.dials[key] = proposed
+            # else: loosen attempt — clamp, keep the (already-tighter) anchor value
+
+        if gov.budget is not None:
+            if gov.budget.daily_usd is not None:
+                if eg.daily_usd is None or gov.budget.daily_usd <= eg.daily_usd:
+                    eg.daily_usd = gov.budget.daily_usd
+                # else: clamp — keep the tighter anchor daily_usd
+            if gov.budget.per_idea_usd is not None:
+                if gov.budget.per_idea_usd <= eg.per_idea_usd:
+                    eg.per_idea_usd = gov.budget.per_idea_usd
+                # else: clamp — keep the anchor per-idea ceiling
+
+        if gov.rung_policy is not None:
+            rp = gov.rung_policy
+            if rp.max_rung is not None:
+                if rp.max_rung <= eg.max_rung:
+                    eg.max_rung = rp.max_rung
+                # else: clamp — keep the anchor max_rung
+            for key, usd in rp.est_usd_by_rung.items():
+                baseline = eg.est_usd_by_rung.get(key)
+                if baseline is None or usd <= baseline:
+                    eg.est_usd_by_rung[key] = usd
+                # else: clamp — keep the anchor est_usd for this rung
+
+        return eg
+
+    def rung5_policy(self, sub: Literal["5a", "5b"]) -> RungPolicy:
+        """V6 #2 — the 5a (staged-behind-flag) / 5b (prod-promoted) sub-rung policy. Looks for a
+        dedicated `"5a-staged"` / `"5b-prod"` entry in `rungs:`; falls back to the legacy
+        `"5-flagged"` entry when an ANCHOR hasn't been split yet (back-compat: every pre-v0.6
+        ANCHOR resolves identically for both sub-rungs)."""
+        key = "5a-staged" if sub == "5a" else "5b-prod"
+        return self.rungs.get(key) or self.rungs["5-flagged"]

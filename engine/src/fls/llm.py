@@ -232,6 +232,19 @@ class SkillServerBuilder:
         return text, call
 
 
+class SkillServerJudge(SkillServerBuilder):
+    """A Judge on the SAME $0 skill-server subscription lane as SkillServerBuilder.
+
+    The Judge Protocol (`complete(prompt, max_tokens, system) -> (text, Call)`) is byte-identical
+    to the builder's — a judge is just a completion prompted with the admission system. So routing
+    adjudication through here runs it on the flat subscription (usd=0) instead of drawing down the
+    finite pool of *sponsored* Azure credits `AzureJudge` consumes (those credits are usd=0 in the
+    ledger but have real dollar value). Same accounting: `funded_by="subscription"`, `usd=0.0`,
+    `normalized_usd` shadow-priced so the lane stays comparable. Use for the `fls bench` live judge
+    and any admission/climb we want to run without a real (sponsored) credit drawdown.
+    """
+
+
 class FallbackBuilder:
     """Wraps a primary builder (skill-server) with an authorized, budgeted fallback (api).
 

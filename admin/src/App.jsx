@@ -12,6 +12,8 @@ import Constitution from './sections/Constitution.jsx'
 import Vessels from './sections/Vessels.jsx'
 import Modules from './sections/Modules.jsx'
 import { Calibration, Lessons } from './sections/Panels.jsx'
+import PanelAuthor from './sections/PanelAuthor.jsx'
+import EarningHistory from './sections/EarningHistory.jsx'
 import { Toast } from './ui.jsx'
 import AnchorConsole from './wizard/AnchorConsole.jsx'
 import FeederControl from './wizard/FeederControl.jsx'
@@ -83,7 +85,9 @@ export default function App() {
   else if (route === '#/calibration') pane = <Calibration data={data} />
   else if (route === '#/anchor/console') pane = <AnchorConsole data={data} toast={say} />
   else if (route === '#/anchor/vessels') pane = <Vessels data={data} />
+  else if (route === '#/anchor/panels') pane = <PanelAuthor data={data} toast={say} />
   else if (route === '#/anchor/autonomy') pane = <Calibration data={data} autonomy />
+  else if (route === '#/anchor/earning-history') pane = <EarningHistory data={data} />
   else if (route === '#/anchor') pane = <Constitution data={data} />
   else if (route === '#/system/feeder') pane = <FeederControl data={data} toast={say} />
   else if (route === '#/system') pane = <Modules data={data} />
@@ -103,7 +107,9 @@ export default function App() {
       ['#/anchor', 'Constitution', null],
       ['#/anchor/console', 'Console', null],
       ['#/anchor/vessels', 'Vessels', counts.vessels],
+      ['#/anchor/panels', 'Panels', null],
       ['#/anchor/autonomy', 'Autonomy', counts.recs > 0 ? `${counts.recs} rec` : null],
+      ['#/anchor/earning-history', 'Earning history', null],
     ] },
     { head: 'System', badge: counts.slotProblems, badgeClass: 'grp-amber', items: [
       ['#/system', 'Modules', null],

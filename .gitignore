@@ -13,3 +13,5 @@ admin/preview.png
 expeditions/error-analysis/
 scripts/local-env.sh
 expeditions/conv-beat/
+examples/quickstart/quickstart-ledger.jsonl
+.worktrees/

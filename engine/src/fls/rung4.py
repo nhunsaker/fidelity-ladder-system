@@ -90,7 +90,7 @@ class Rung4Result:
 
 def run_rung4(expedition: int, ctx: BoundedContext, builder: Builder, verifier: Verifier,
               artifact_dir: str, lessons_path: str, max_retries: int = 3,
-              from_rung: int = 4, to_rung: int = 2) -> Rung4Result:
+              from_rung: int = 4, to_rung: int = 2, builder_max_tokens: int = 1500) -> Rung4Result:
     calls: list[Call] = []
     attempt = 0
     while attempt <= max_retries:
@@ -98,7 +98,7 @@ def run_rung4(expedition: int, ctx: BoundedContext, builder: Builder, verifier: 
         # build with the bounded context (prior failures fed back in)
         _, call = builder.complete(
             f"Build the MVP for this feature in the worktree. Output the change.\n\n{ctx.render()}",
-            max_tokens=1500,
+            max_tokens=builder_max_tokens,
         )
         calls.append(call)
         result: VerifierResult = verifier.verify(artifact_dir)

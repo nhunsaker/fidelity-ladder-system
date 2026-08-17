@@ -74,12 +74,23 @@ app.add_middleware(
 @app.on_event("startup")
 def _prod_init() -> None:
     """Prod wiring: give the harness a real adjudicator when the Azure key is present.
-    Without one, admission fails closed (needs-human) — never a silent admit."""
+    Without one, admission fails closed (needs-human) — never a silent admit.
+
+    V6: the adjudicator is now selected via ANCHOR `adjudicator.kind` (make_adjudicator).
+    Default kind=single-llm resolves to the same AzureJudge(gpt-5.4-nano) as before this
+    field existed; kind=council is opt-in per ANCHOR. If the ANCHOR can't be read at startup,
+    fall back to the historical hardcoded single judge rather than fail to boot."""
     import os as _os
     if deps.judge is None and _os.environ.get("AZURE_OPENAI_KEY"):
-        from fls.llm import AzureJudge
-        deps.judge = AzureJudge("gpt-5.4-nano")
-        log.info("adjudicator: AzureJudge(gpt-5.4-nano)")
+        from fls.adjudicator import make_adjudicator
+        try:
+            anchor = _anchor()
+            deps.judge = make_adjudicator(anchor)
+            log.info(f"adjudicator: kind={anchor.adjudicator.kind} model={anchor.adjudicator.model}")
+        except Exception as e:  # noqa: BLE001 - fail open to the known-good default, never refuse to boot
+            from fls.llm import AzureJudge
+            deps.judge = AzureJudge("gpt-5.4-nano")
+            log.warning(f"adjudicator: ANCHOR unreadable ({e}), falling back to AzureJudge(gpt-5.4-nano)")
     # FLS_MODULES extension hook — importlib-import each declared module (fail-closed: an
     # unknown path RAISES here, so the process refuses to start rather than run half-wired).
     from fls.modules import load_modules
@@ -98,11 +109,17 @@ def health() -> dict:
 
 @app.get("/system")
 def system() -> dict:
-    """Reflect the four module seams (AUTH · IDEAS · SOURCES · WORKERS) as booleans + kinds +
-    docs links — B2's System cards consume this. Read-only, fast, no network probes, no secrets."""
+    """Reflect the six module seams as booleans + kinds + docs links — B2's System cards
+    consume this. Read-only, fast, no network probes, no secrets.
+
+    `app` is a top-level convenience boolean (V9-P1): whether the GitHub App auth path is
+    active (`slots.auth.kind == "github-app"`). A fresh install with no App configured reports
+    `app: false` — that's local-mode, the default, not an error."""
     from fls.modules import describe
     a = _anchor()
-    return {"anchor_version": a.version, "slots": describe(a)}
+    slots = describe(a)
+    return {"anchor_version": a.version, "app": slots["auth"]["kind"] == "github-app",
+            "slots": slots}
 
 
 @app.get("/anchor")
@@ -132,6 +149,7 @@ def snapshot() -> dict:
     anchor_text = ANCHOR_PATH.read_text()
     led = deps.store.ledger()
     rpt = build_report(led, a)
+    slots = describe(a)
     return {
         "wall": deps.store.wall(),
         "lessons": deps.store.lessons(),
@@ -146,7 +164,8 @@ def snapshot() -> dict:
                    "budgets": a.budgets.__dict__,
                    "vessels": [v.model_dump() for v in a.vessels],
                    "default_vessel": a.default_vessel},
-        "system": {"anchor_version": a.version, "slots": describe(a)},
+        "system": {"anchor_version": a.version, "app": slots["auth"]["kind"] == "github-app",
+                   "slots": slots},
         "prose": guardrails_prose(anchor_text),
         "goal": a.resolved_goal(),
     }
@@ -180,6 +199,68 @@ def calibration() -> dict:
 @app.get("/lessons")
 def lessons() -> list[str]:
     return deps.store.lessons()
+
+
+@app.get("/mining-history")
+def mining_history(vessel: str | None = None) -> list[dict]:
+    """Append-only judge-calibration mining snapshots (v0.6 #7) for the earning-history lens.
+
+    v0.7: this read path now DRIVES the persistence cadence — `mine_if_due` mines+appends a
+    fresh anchor-level snapshot when the last one is stale (default: once/day guard in
+    mining.py; a no-op most calls), so `mining-history.jsonl` actually accrues an earned track
+    record instead of only ever being read. Empty history still falls back to one fresh
+    (unpersisted) snapshot.
+
+    v0.7 #3: `?vessel=<Vessel.name>` returns a single LIVE snapshot sliced to that vessel's
+    ledger rows instead of the persisted anchor-level history (per-vessel snapshots aren't
+    accrued to the shared history file, to avoid polluting the anchor-level drift_trend) — the
+    admin's EarningHistory renders this as a one-point trail; omitting `vessel` is unchanged,
+    back-compat anchor-level behavior."""
+    from fls.mining import default_history_path, mine, mine_if_due, read_history
+
+    # v0.7 fix: resolve alongside ledger.jsonl (deps.root — the store's instance root), not the
+    # process cwd — the pre-v0.7 read-only call site never wrote a file so the cwd-relative
+    # default was latent; now that this path DRIVES persistence it must be instance-rooted (the
+    # `FLS_MINING_HISTORY_PATH` env override still takes precedence, per default_history_path).
+    path = default_history_path(deps.root)
+    if vessel:
+        return [mine(deps.store.ledger(), _anchor(), vessel=vessel).to_dict()]
+    mine_if_due(deps.store.ledger(), _anchor(), path)
+    hist = read_history(path)
+    if not hist:
+        hist = [mine(deps.store.ledger(), _anchor())]
+    return [r.to_dict() for r in hist]
+
+
+@app.post("/panels/propose")
+async def panels_propose(request: Request) -> dict:
+    """Validate a proposed panel-authoring edit (v0.6 #5) and return the reviewable change —
+    proposal-only (the 'edits are PRs' protocol; never auto-applies to ANCHOR). A panel is a
+    registry name (str) or an explicit persona-id list; it binds to a vessel via a lenses
+    LensParams entry."""
+    body = await request.json()
+    panel = body.get("panel")
+    target_vessel = body.get("target_vessel")
+    errors: list[str] = []
+    if isinstance(panel, str):
+        if not panel.strip():
+            errors.append("panel name must be non-empty")
+    elif isinstance(panel, list):
+        if not panel or not all(isinstance(p, str) and p.strip() for p in panel):
+            errors.append("panel list must be a non-empty list of persona-id strings")
+        elif len(set(panel)) != len(panel):
+            errors.append("panel list has duplicate persona ids")
+    else:
+        errors.append("panel must be a registry name (string) or a persona-id list")
+    if target_vessel is not None and not isinstance(target_vessel, str):
+        errors.append("target_vessel must be a string or omitted")
+    valid = not errors
+    return {
+        "valid": valid,
+        "errors": errors,
+        "proposed_change": {"panel": panel, "target_vessel": target_vessel} if valid else None,
+        "note": "proposal-only — apply via an ANCHOR lenses PR (panel + target_vessel live in a LensParams entry)",
+    }
 
 
 @app.get("/preview/{number}")

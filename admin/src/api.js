@@ -43,4 +43,8 @@ export const api = {
   anchorValidate: (body) => j('/anchor/validate', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }),
   anchorPropose: (body) => j('/anchor/propose', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }),
   feederRun: (body) => j('/feeder/run', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }),
+  // TODO(backend): /panels/propose doesn't exist on the harness yet — see PanelAuthor.jsx.
+  // Wired the same way anchorPropose is (validated edit -> PR); PanelAuthor degrades honestly
+  // (stages the payload, writes nothing) when this 404s/errors, so the section is usable today.
+  panelPropose: (body) => j('/panels/propose', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }),
 }

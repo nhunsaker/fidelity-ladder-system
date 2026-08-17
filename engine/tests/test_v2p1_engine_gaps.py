@@ -170,9 +170,9 @@ def test_bounded_context_carries_component_inventory():
     """V2-P4: rung-4 builders compose from the target app's REAL component library."""
     from fls.rung4 import BoundedContext
     ctx = BoundedContext(spec="s", wireframe="w", acceptance_test="t",
-                         component_inventory="Button, Card, Table (from @metatoy/bootstrap-styled)")
+                         component_inventory="Button, Card, Table (from @acme/ui)")
     r = ctx.render()
-    assert "COMPONENT LIBRARY" in r and "bootstrap-styled" in r
+    assert "COMPONENT LIBRARY" in r and "@acme/ui" in r
     # inventory can never crowd out the failure feedback (the per-section caps hold)
     ctx2 = BoundedContext(spec="s", wireframe="w", component_inventory="X" * 10000,
                           prior_failures=["the-failure-that-steers"])

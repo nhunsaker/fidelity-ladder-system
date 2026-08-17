@@ -17,6 +17,12 @@ one protocol (issue comment). Markdown code fences are stripped from every line 
 (the #4 climb needed this by hand — encoded here). Artifacts persist to
 expeditions/<id>/wireframes/ (file contract unchanged: candidate-*.html + ranking.json, plus a
 mode.json the admin viewer can read) so the issue/admin UI keeps rendering.
+
+Self-verify pre-check (Wu, Phase 3): before the human is asked to pick a line, a cheap
+structural a11y lint runs over every candidate — the human shouldn't have to pick among
+a11y-broken wireframes. Clean lines are ranked ahead of dirty ones; if every candidate is dirty,
+`Rung2Result.pre_check_passed` is False, which a caller MUST treat as a park (nothing safe to
+hand the human), not a silent pass-through.
 """
 from __future__ import annotations
 
@@ -57,6 +63,50 @@ _FENCE = re.compile(r"^\s*```")
 
 MODES = ("structure", "variants", "auto")
 
+_IMG_TAG = re.compile(r"(?is)<img\b([^>]*)>")
+_ALT_ATTR = re.compile(r'(?is)\balt\s*=\s*(".*?"|\'.*?\'|\S+)')
+_CONTROL_TAG = re.compile(r"(?is)<(input|textarea|select)\b([^>]*)>")
+_SELF_LABEL_ATTR = re.compile(r"(?is)\b(aria-label|aria-labelledby|placeholder|title)\s*=")
+_ID_ATTR = re.compile(r'(?is)\bid\s*=\s*(".*?"|\'.*?\')')
+_LABEL_FOR = re.compile(r'(?is)<label\b[^>]*\bfor\s*=\s*(".*?"|\'.*?\')')
+_EMPTY_INTERACTIVE = re.compile(r"(?is)<(button|a)\b([^>]*)>(.*?)</\1>")
+_TEXT_CONTENT = re.compile(r"(?is)<[^>]*>")
+
+
+def a11y_lint(html: str) -> list[str]:
+    """Cheap structural a11y lint over an HTML fragment (no browser, no deps — just the patterns
+    that make a candidate unreviewable-by-a-screen-reader). NOT a replacement for axe-core; this
+    is the rung-2 pre-check gate, not the eventual verifier. Returns [] when clean."""
+    html = html or ""
+    violations: list[str] = []
+
+    for m in _IMG_TAG.finditer(html):
+        attrs = m.group(1)
+        alt = _ALT_ATTR.search(attrs)
+        if not alt or re.sub(r'^["\']|["\']$', "", alt.group(1)).strip() == "":
+            violations.append("<img> missing a non-empty alt attribute")
+
+    label_targets = {m.group(1).strip('"\'') for m in _LABEL_FOR.finditer(html)}
+    for m in _CONTROL_TAG.finditer(html):
+        attrs = m.group(2)
+        if _SELF_LABEL_ATTR.search(attrs):
+            continue  # aria-label/aria-labelledby/placeholder/title all count for a wireframe
+        idm = _ID_ATTR.search(attrs)
+        if idm and idm.group(1).strip('"\'') in label_targets:
+            continue  # <label for="..."> associates it
+        tag = m.group(1).lower()
+        violations.append(f"<{tag}> has no accessible name (label/aria-label/placeholder)")
+
+    for m in _EMPTY_INTERACTIVE.finditer(html):
+        tag, attrs, inner = m.group(1).lower(), m.group(2), m.group(3)
+        if _SELF_LABEL_ATTR.search(attrs):
+            continue
+        text = _TEXT_CONTENT.sub("", inner).strip()
+        if not text:
+            violations.append(f"<{tag}> has no visible text and no aria-label")
+
+    return violations
+
 
 def _strip_fences(text: str) -> str:
     """Strip markdown code-fence lines (```), keeping the HTML between them. The #4 climb needed
@@ -82,14 +132,26 @@ def _classify(idea: Idea, spec: str, judge: Judge) -> tuple[str, Call | None]:
 @dataclass
 class Rung2Result:
     wireframes: list[str]           # HTML fragments ("lines"), index-aligned
-    suggested_ranking: list[int]    # judge suggestion; human makes the real pick
+    suggested_ranking: list[int]    # judge suggestion, RE-SORTED clean-first by the a11y pre-check
     calls: list[Call] = field(default_factory=list)
     picked_index: int | None = None  # set when the human picks (via controller)
     mode: str = "structure"          # resolved fidelity: structure | variants
+    a11y_violations: list[list[str]] = field(default_factory=list)  # index-aligned to wireframes
 
     @property
     def cost_usd(self) -> float:
         return round(sum(c.usd for c in self.calls), 4)
+
+    @property
+    def clean_indices(self) -> list[int]:
+        return [i for i, v in enumerate(self.a11y_violations) if not v]
+
+    @property
+    def pre_check_passed(self) -> bool:
+        """Self-verify pre-check (Wu, Phase 3): False only when EVERY candidate is a11y-dirty —
+        there is nothing safe to hand the human. A caller MUST park rather than present dirty
+        lines when this is False (fail-closed, not advisory)."""
+        return bool(self.clean_indices) or not self.wireframes
 
     def persist(self, expeditions_dir: str | Path, expedition: int) -> Path:
         d = Path(expeditions_dir) / str(expedition) / "wireframes"
@@ -98,6 +160,7 @@ class Rung2Result:
             (d / f"candidate-{i}.html").write_text(w, encoding="utf-8")
         (d / "ranking.json").write_text(json.dumps(self.suggested_ranking), encoding="utf-8")
         (d / "mode.json").write_text(json.dumps({"mode": self.mode}), encoding="utf-8")
+        (d / "a11y.json").write_text(json.dumps(self.a11y_violations), encoding="utf-8")
         return d
 
 
@@ -140,4 +203,11 @@ def run_rung2(idea: Idea, spec: str, builder: Builder, judge: Judge,
     except (ValueError, TypeError):
         ranking = list(range(n))
     ranking = [i for i in ranking if 0 <= i < n] or list(range(n))
-    return Rung2Result(wires, ranking, calls, mode=resolved)
+
+    # self-verify pre-check (Wu, Phase 3): lint every line, then stable-sort clean-first so the
+    # human's candidate list never leads with a broken one. Order among equally-clean/dirty
+    # candidates is preserved (stable sort keeps the judge's relative preference).
+    a11y_violations = [a11y_lint(w) for w in wires]
+    ranking = sorted(ranking, key=lambda i: 1 if a11y_violations[i] else 0)
+
+    return Rung2Result(wires, ranking, calls, mode=resolved, a11y_violations=a11y_violations)

@@ -72,14 +72,11 @@ rungs:                        # per-rung autonomy defaults + cost estimate (USD)
   "3-demo":       { dial: auto-advance-with-audit, est_usd: 0.40 }
   "4-mvp":        { dial: human-picks,             est_usd: 1.20 }   # gated entry AND exit
   "5-flagged":    { dial: propose-only,            est_usd: 0.30 }   # hard gate: draft PR + sign-off
-  # V6 #2 — optional finer split of rung 5; Anchor.rung5_policy() falls back to "5-flagged"
-  # above when an instance hasn't declared these (back-compat for pre-v0.6 ANCHORs).
-  "5a-staged":    { dial: propose-only,            est_usd: 0.10 }   # stage deploy behind the flag
-  "5b-prod":      { dial: propose-only,            est_usd: 0.05 }   # Environment-gated prod promotion
 
 budgets:
   per_expedition_ceiling_usd: 8.00      # expedition parks visibly at ceiling; never creeps
   claude_api_hard_cap_usd: 100          # console-enforced; builders only; alert at 50
+  azure_resource_group: fidelity-ladder-rg
 
 autonomy_demote:              # the ledger's demote trigger (P1 defines, P3 button reads)
   agreement_threshold: 0.80   # judge-vs-human agreement below this...
@@ -87,22 +84,6 @@ autonomy_demote:              # the ledger's demote trigger (P1 defines, P3 butt
   action: tighten_one_step    # ...drops that rung's dial one step and notifies the gatekeeper
 
 altitude_allowed: [ticket, feature]   # units of work rung-4 may own in this instance (no migration)
-
-# ── VESSEL context packs (V3) ─────────────────────────────────────────────────
-# A vessel is grounding, NOT a dials layer (Ng's cut): what surface an expedition works +
-# the standards/paths it explores against. Consumed by admission, feeder, and rung-1/2 prompts.
-default_vessel: acme-demo
-vessels:
-  - name: acme-demo
-    kind: app
-    description: >-
-      The Acme demo app — the storefront + inventory-admin surface the fidelity ladder
-      builds against (product pages, the restock button, inventory tables). Small on purpose:
-      it exists to exercise the ladder end-to-end, not to be a real product.
-    paths: [demo-app/]
-    standards:
-      - "a11y: axe-clean on changed surfaces"
-      - "compose UI from @acme/ui design-system components (never hand-rolled)"
 ```
 
 ## Cascade rule

@@ -1,15 +1,17 @@
 # Getting started — install the ladder on your repo
 
 The ladder is a generic loop; **your instance is entirely environment configuration**
-([`instance.env.example`](../instance.env.example)). Installing it on a repo takes four pieces:
-an ANCHOR, labels, a GitHub App, and the harness running somewhere.
+([`instance.env.example`](../instance.env.example)). A fresh install runs in **local-mode**
+out of the box — no GitHub App, no token, no repo — via the built-in `sources.kind=local` /
+`auth.kind=none` seams (see [modules.md](modules.md)). Step 3 (wiring the real GitHub surface)
+is **optional**, only needed if you want issues-as-expeditions + webhook-driven admission.
 
-## 1. Run it locally first ($0)
+## 1. Run it locally first ($0, local-mode)
 
 ```bash
 cd engine
 python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
-.venv/bin/python -m pytest -q     # 99 tests, stubbed judges — no keys, no spend
+.venv/bin/python -m pytest -q     # stubbed judges — no keys, no spend
 .venv/bin/uvicorn fls.app:app     # harness API on :8000
 ```
 
@@ -17,8 +19,12 @@ python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 cd admin && pnpm install && pnpm run dev   # the admin UI (Vite, :8792)
 ```
 
-With no keys configured everything **fails closed**: admission parks ideas as `needs-human`,
-the skill-server lane reports unavailable, outbound GitHub calls refuse. Nothing pretends.
+With no keys configured everything **fails closed** where it should: admission parks ideas as
+`needs-human`, the skill-server lane reports unavailable. `sources`/`auth` are the exception —
+with no GitHub env set they auto-select the no-op-safe `local`/`none` built-ins (nothing to
+configure, nothing pretends a GitHub repo exists). Check `curl -s localhost:8000/system` — a
+fresh install shows `"app": false` and `slots.sources.kind == "local"`; that's expected, not
+broken. Nothing else pretends, either.
 
 ## 2. Write your ANCHOR
 
@@ -28,7 +34,7 @@ block is machine-read. Every knob is documented in
 [anchor-reference.md](anchor-reference.md). The one rule the code enforces everywhere:
 **tighten-only** — anything below the ANCHOR may make a constraint stricter, never looser.
 
-## 3. Wire the GitHub surface
+## 3. Wire the GitHub surface (optional — skip to stay in local-mode)
 
 1. Load the labels: `gh label create` from [.github/labels.yml](../.github/labels.yml)
    (`rung:*`, `dial:*`, `docked`).
@@ -101,10 +107,14 @@ build-time config needed). Three hosts: admin, stage, prod.
 
 ## 6. Check your wiring
 
-`GET https://<your-harness>/system` is the install health check: all four module slots
-(auth · ideas · sources · workers) with `configured`/`available` booleans and a docs link per
-slot — see [modules.md](modules.md). Anything unconfigured fails closed and says so; fix by
-setting the env var the slot's docs name, never by editing code.
+`GET https://<your-harness>/system` is the install health check: all six module slots
+(auth · ideas · lenses · sources · workers · environment) with `configured`/`available`
+booleans and a docs link per slot — see [modules.md](modules.md), plus a top-level `app`
+boolean (whether the GitHub App auth path is active). Anything unconfigured fails closed and
+says so; fix by setting the env var the slot's docs name, never by editing code. `auth`/
+`sources` are the one pair that fails *open* to a safe local default instead of closed —
+`app: false` / `sources.kind: "local"` with no GitHub env set is the fresh-install steady
+state, not an error to chase.
 
 ## The gates you'll own
 

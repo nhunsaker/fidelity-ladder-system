@@ -1,5 +1,14 @@
 # 🪜 Fidelity Ladder System
 
+> **SDD gates what artifact comes next; FLS gates how real it's allowed to get.**
+
+Spec-driven development (like GitHub Spec Kit) governs the *sequence* of artifacts —
+constitution → spec → plan → tasks → code. The Fidelity Ladder governs a different axis:
+**how much reality each step is allowed to commit.** We call the category **progressive
+fidelity** — SDD's sibling, not its competitor. Run both: SDD picks the next document; the
+ladder decides how real it gets, and refuses to let an agent skip rungs because it feels
+confident.
+
 **Today's agentic loops iterate on code diffs. This one iterates on design fidelity** — spec →
 wireframe → interactive demo → MVP → feature-flagged code — with autonomy dialed independently
 per rung: the agent runs free where failure is cheap and gates hard where blast radius is real.
@@ -8,6 +17,9 @@ The insight underneath: *code is the most expensive possible medium in which to 
 built the wrong thing.* Current loops verify **correctness**; none verify **direction** — and
 direction is cheapest to test at low fidelity. Product teams already know this (that's why
 design processes exist); agentic tooling skipped it and jumped straight to "generate the PR."
+
+**Read the [MANIFESTO](MANIFESTO.md)** for the full thesis, the named principles, the honest
+costs, and a ~100-line reference sketch of the pattern.
 
 ## How it works
 
@@ -37,6 +49,30 @@ drops the expedition back down and writes a durable lesson that future judges re
 gets smarter from its own failures, measurably: in an N=10 ablation, builders passed 10/10
 with acceptance criteria in context vs 8/10 without — the exact lesson a live descent taught.
 
+## The slots are the legos
+
+The ladder's connections to the outside world are **module slots** — the extension points that
+make this a framework and not just an app. The code holds the mechanisms; your instance chooses
+a `kind` per slot and wires it with environment variables. Choice is **ANCHOR** (policy,
+PR-reviewed); connection is **env** (identity + secrets); status is `GET /system` (kinds +
+booleans only, never a secret value).
+
+| Slot | What it is | Built-in kind(s) |
+|---|---|---|
+| **AUTH** | inbound webhook verification + the outbound token | `github-app` |
+| **IDEAS** | where ideas come from — every source enters by the ONE admission door | `manual`, `feeder` |
+| **SOURCES** | the repo(s) whose issues ARE expeditions, + deploy targets | `github` |
+| **WORKERS** | who fulfils builder work ("pass-back") — specs, demos, MVP code | `api`, `skill-server` |
+| **LENSES** | verifiers a rung runs before it may advance (a11y, design-drift, …) | fail-closed `detector_ran` envelope |
+
+Each slot is a small `typing.Protocol` (2–3 methods on purpose). Implement one, register it,
+point `FLS_MODULES=` at your wiring module, and select the kind in your ANCHOR. An
+unconfigured slot **fails closed** — the ladder refuses the affected action rather than
+pretending. See [docs/modules.md](docs/modules.md) for the full contract and
+[docs/pattern.md](docs/pattern.md) for the pattern written GoF-style. For the pattern in
+motion — one idea climbing, descending at the expensive rung, and leaving a lesson — read
+[docs/worked-expedition.md](docs/worked-expedition.md).
+
 ## The three layers
 
 - **Surface** — GitHub primitives: issues are expeditions, labels are rung/dial state, signed
@@ -55,6 +91,16 @@ live-poked), and a kill switch that requires a name.
 
 ## Quickstart (~5 minutes, $0)
 
+**Time-to-first-ladder-run: under a minute.** The importable core pulls just two small deps
+(`pydantic` + `pyyaml` — no web, GitHub, or MCP), and a first governed climb runs in **~0.1s**:
+
+```bash
+pip install fidelity-ladder          # core only — pydantic + pyyaml, seconds
+python examples/quickstart.py        # a governed admission runs — no harness, no keys, no spend (~0.1s)
+```
+
+The full setup below (harness API + admin UI + rung-4 verifier) is a few minutes more.
+
 Requires **Python ≥3.11** and Node 20+ (for the admin and the rung-4 verifier).
 
 ```bash
@@ -70,13 +116,25 @@ Then open `admin/` (`pnpm install && pnpm run dev`) for the UI, and read
 the entire instance is [environment configuration](instance.env.example); the code contains no
 deployment-specific values.
 
+> **On "framework."** The extension model above is real and load-bearing today — protocols,
+> a registry, fail-closed wiring, `GET /system` reflection. As of **v0.8.0-p1** the ladder core
+> (`Anchor`/tighten-only cascade/calibration ledger + rungs-as-data) IS factored out as the
+> importable **`fidelity_ladder`** package with **zero web/GitHub/MCP dependencies** — a ladder
+> runs from `import fidelity_ladder` + one config today (see [`examples/quickstart.py`](examples/quickstart.py),
+> which runs a governed admission with no harness, no web deps, and no model spend). What is
+> *still in flight*: the public PyPI publish (so it's `pip install fidelity-ladder`, not an
+> editable checkout) and the full trace suite (a live climb on a second real repo). See the
+> [MANIFESTO's honesty section](MANIFESTO.md#the-honesty-number).
+
 ## Status
 
-Engine complete (rungs 0–5, 99 tests, CI) · harness API + signed-webhook surface · admin app ·
-MCP server (`ladder-mcp`) with non-bypassable gates · reference deploy configs in
-[deploy.example/](deploy.example/). Honest seams: issue-mirroring needs a GitHub App token;
-Environments' reviewer rule needs a plan that supports it (the harness gate enforces
-regardless — fail-closed either way).
+Engine complete (rungs 0–5, 227 tests, CI) · **importable `fidelity_ladder` core (v0.8.0-p1,
+zero web/GitHub deps) + rungs-as-config + runnable quickstart** · harness API + signed-webhook
+surface · admin app · MCP server (`ladder-mcp`) with non-bypassable gates · reference deploy
+configs in [deploy.example/](deploy.example/). Honest seams: issue-mirroring needs a GitHub App
+token; Environments' reviewer rule needs a plan that supports it (the harness gate enforces
+regardless — fail-closed either way). Not yet: the public PyPI publish (founder-gated) and the
+`fls bench` scoreboard (see the MANIFESTO's honesty number).
 
 ## Principles (the non-negotiables)
 
@@ -84,6 +142,18 @@ regardless — fail-closed either way).
 proceeds. 3. **Accessibility floor** — axe-core clean before anything ships. 4. **Evidence
 over claims** — the ledger shows it or it didn't happen. 5. **Provenance** — agent-authored
 code says so.
+
+These five are the runtime constitution. The broader *doctrine* — why it's shaped this way —
+lives in the [MANIFESTO](MANIFESTO.md).
+
+## OSS & the 12-factor promise
+
+MIT-licensed. The design rule is strict and load-bearing: **the code holds mechanisms; your
+instance is entirely variables.** Policy lives in your `ANCHOR.md` (PR-reviewed); identity and
+secrets live in env ([instance.env.example](instance.env.example) documents the contract, values
+never in the tree); status surfaces expose kinds and booleans, never secret values. That split
+is the 12-factor promise and it is checkable — `GET /system` will tell you, truthfully, how you
+wired it.
 
 This repo practices what it preaches: the code is largely agent-authored, every merge was
 human-gated, and the ledger discipline above ran the build itself.

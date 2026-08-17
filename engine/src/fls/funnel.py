@@ -32,8 +32,75 @@ class RankedIdea:
     target_rung: int = RUNG_INTENT
 
 
+@dataclass
+class QueueTier:
+    """A first-class staging tier below the active wire (RUNG_WIRE and above spend; this tier
+    never does). Ideas parked here are admitted-but-not-advancing: tracked, ordered, and
+    promotable, but NOT spending until explicitly promoted.
+
+    Nesting (per the funnel's shape): flag ⊆ demo ⊆ wire ⊆ queue ⊆ admitted. `cap` bounds how
+    many admitted-but-below-wire ideas the tier tracks at all; anything beyond `cap` is pure
+    overflow — never enqueued, never visible, never promotable (recorded in `.dropped` for
+    observability only).
+
+    Ordering is best-rank-first (ascending `rank`); `promote_next`/`promote_many` always pull the
+    best-ranked queued idea(s), so promotion is a deterministic, auditable FIFO-by-merit.
+    """
+    cap: int = 0
+    items: list[RankedIdea] = field(default_factory=list)
+    dropped: list[RankedIdea] = field(default_factory=list)
+
+    def __len__(self) -> int:
+        return len(self.items)
+
+    @property
+    def is_full(self) -> bool:
+        return self.cap > 0 and len(self.items) >= self.cap
+
+    def enqueue(self, idea: RankedIdea) -> bool:
+        """Park `idea` in the queue tier without spending (forces target_rung to RUNG_INTENT).
+        Returns True if it was enqueued, False if it overflowed `cap` (recorded in `.dropped`,
+        not tracked further — pure overflow, per the funnel's fail-closed shape)."""
+        idea.target_rung = RUNG_INTENT
+        if self.cap <= 0 or self.is_full:
+            self.dropped.append(idea)
+            return False
+        self.items.append(idea)
+        self.items.sort(key=lambda x: x.rank)
+        return True
+
+    def peek(self, n: int = 1) -> list[RankedIdea]:
+        """Look at the next `n` best-ranked queued ideas without removing them."""
+        return self.items[:n]
+
+    def promote_next(self, target_rung: int = RUNG_WIRE) -> RankedIdea | None:
+        """Pop the best-ranked queued idea and promote it to `target_rung` (default: wireframe —
+        the tier immediately above queue). Returns None if the queue is empty."""
+        if not self.items:
+            return None
+        idea = self.items.pop(0)
+        idea.target_rung = target_rung
+        return idea
+
+    def promote_many(self, count: int, target_rung: int = RUNG_WIRE) -> list[RankedIdea]:
+        """Promote up to `count` best-ranked queued ideas in merit order; stops early if the
+        queue empties first."""
+        promoted: list[RankedIdea] = []
+        for _ in range(count):
+            idea = self.promote_next(target_rung)
+            if idea is None:
+                break
+            promoted.append(idea)
+        return promoted
+
+
 def assign_lanes(admitted: list[RankedIdea], anchor: Anchor) -> list[RankedIdea]:
-    """Set each admitted idea's target_rung from its rank + the ANCHOR funnel policy."""
+    """Set each admitted idea's target_rung from its rank + the ANCHOR funnel policy.
+
+    Deprecated (v0.7): `controller.run_batch` now calls `assign_lanes_and_stage` instead, which
+    stages the below-wire remainder through a first-class, promotable `QueueTier` rather than
+    this function's bare `visible` arithmetic. Kept for back-compat (external/direct callers,
+    `prune_early`'s hypothetical-cost calc); removal deferred to v0.8."""
     f = anchor.funnel
     n = len(admitted)
     wire_all = f.wireframes == "all"
@@ -54,6 +121,39 @@ def assign_lanes(admitted: list[RankedIdea], anchor: Anchor) -> list[RankedIdea]
         else:
             idea.target_rung = RUNG_INTENT  # queued, not spending
     return admitted
+
+
+def assign_lanes_and_stage(admitted: list[RankedIdea], anchor: Anchor) -> tuple[list[RankedIdea], QueueTier]:
+    """Governed sibling of `assign_lanes`: same flag/demo/wire nesting, but the below-wire
+    remainder is staged through a first-class `QueueTier` (enqueue/promote/cap) instead of a bare
+    `visible` arithmetic extension. `assign_lanes` is untouched and remains the back-compat entry
+    point (existing `Funnel.queue` behaviour — `queue` widening the wire-visible count — is
+    preserved there unchanged); this function is the new governed path for callers that want an
+    explicit, promotable staging tier.
+
+    Nesting: flag (rank <= auto_build) -> demo (next interactive_demos) -> wire (next wire_n,
+    cumulative from rank 1) -> queue tier (next `queue` ranks, capped, tracked, not spending) ->
+    pure overflow (untracked, recorded in `QueueTier.dropped`).
+    """
+    f = anchor.funnel
+    n = len(admitted)
+    wire_all = f.wireframes == "all"
+    wire_n = n if wire_all else int(f.wireframes)
+    demo_n = f.interactive_demos
+    build_n = f.auto_build
+    tier = QueueTier(cap=f.queue)
+
+    for idea in sorted(admitted, key=lambda x: x.rank):
+        r = idea.rank
+        if r <= build_n:
+            idea.target_rung = RUNG_FLAG
+        elif r <= build_n + demo_n:
+            idea.target_rung = RUNG_DEMO
+        elif r <= wire_n:
+            idea.target_rung = RUNG_WIRE
+        else:
+            tier.enqueue(idea)  # queued (rung 0, not spending) up to cap; else pure overflow
+    return admitted, tier
 
 
 # ── prune-early (Wang#2) — kill weak branches BEFORE expensive renders ────────────────────────

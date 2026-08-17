@@ -16,7 +16,7 @@ import re
 from fls.adjudicator import Idea, Judge, adjudicate
 from fls.anchor import Anchor, Verdict
 from fls.expedition import AWAIT_PICK, DOCKED, NEEDS_HUMAN, PARKED, Expedition
-from fls.funnel import RUNG_SPEC, RUNG_WIRE, RankedIdea, assign_lanes
+from fls.funnel import RUNG_SPEC, RUNG_WIRE, RankedIdea, assign_lanes_and_stage
 from fls.ledger import Decision, Ledger
 from fls.rung1 import Builder, run_rung1
 from fls.rung2 import run_rung2
@@ -30,14 +30,19 @@ _RANK_SYS = (
 
 
 def on_idea(idea: Idea, anchor: Anchor, anchor_text: str, judge: Judge,
-            ledger: Ledger, grounding: str = "") -> tuple[Verdict, str]:
-    """Admission. Records the ledger decision (human_verdict None until a human weighs in)."""
+            ledger: Ledger, grounding: str = "", vessel: str | None = None) -> tuple[Verdict, str]:
+    """Admission. Records the ledger decision (human_verdict None until a human weighs in).
+
+    `vessel` (v0.7 #3) optionally tags the recorded Decision with the Vessel.name it belongs
+    to, so mining.mine(vessel=...) can later slice a per-vessel earning-history. Additive:
+    omitted -> untagged (None), identical to pre-v0.7 behavior."""
     j = adjudicate(idea, anchor, anchor_text, judge, grounding=grounding)
     c = j.cost
     ledger.record(Decision(
         expedition=idea.number, rung="0-intent", judge_verdict=j.verdict.value,
         human_verdict=None, judge_cost_usd=(c.usd if c else 0.0),
         judge_tokens_in=(c.input_tokens if c else 0), judge_tokens_out=(c.output_tokens if c else 0),
+        vessel=vessel,
     ))
     return j.verdict, j.reasoning
 
@@ -59,14 +64,15 @@ def _rank_admitted(ideas: list[Idea], anchor: Anchor, judge: Judge) -> list[Rank
 
 def run_batch(ideas: list[Idea], anchor: Anchor, anchor_text: str, judge: Judge,
               builder: Builder, ledger: Ledger, expeditions_dir: str,
-              grounding: str = "") -> list[Expedition]:
+              grounding: str = "", vessel: str | None = None) -> list[Expedition]:
     ceiling = anchor.budgets.per_expedition_ceiling_usd
 
     # 1. admission
     admitted: list[Idea] = []
     exps: dict[int, Expedition] = {}
     for idea in ideas:
-        verdict, reason = on_idea(idea, anchor, anchor_text, judge, ledger, grounding=grounding)
+        verdict, reason = on_idea(idea, anchor, anchor_text, judge, ledger, grounding=grounding,
+                                   vessel=vessel)
         if verdict == Verdict.admit:
             admitted.append(idea)
         else:  # dock / needs-human both stop here with a reason
@@ -74,8 +80,12 @@ def run_batch(ideas: list[Idea], anchor: Anchor, anchor_text: str, judge: Judge,
                            status=DOCKED if verdict == Verdict.dock else NEEDS_HUMAN, reason=reason)
             exps[idea.number] = e
 
-    # 2. rank admitted (cheap) -> 3. assign funnel lanes
-    ranked = assign_lanes(_rank_admitted(admitted, anchor, judge), anchor)
+    # 2. rank admitted (cheap) -> 3. assign funnel lanes (v0.7: the governed QueueTier path —
+    # assign_lanes_and_stage — replaces the legacy assign_lanes; same flag/demo/wire nesting and
+    # the same target_rung=RUNG_INTENT for anything below wire, so downstream climb logic is
+    # unchanged. The QueueTier itself isn't consumed here yet (no promote UI in this phase); it's
+    # discarded after staging, same as `visible`'s overflow was silently discarded before).
+    ranked, _queue_tier = assign_lanes_and_stage(_rank_admitted(admitted, anchor, judge), anchor)
     target = {r.number: r.target_rung for r in ranked}
     dial1 = anchor.rungs["1-spec"].dial
 
@@ -90,8 +100,16 @@ def run_batch(ideas: list[Idea], anchor: Anchor, anchor_text: str, judge: Judge,
             r1 = run_rung1(idea, anchor, builder, judge, grounding=grounding)
             e.add(r1.calls)
             e.spec = r1.revised_top
+            e.acceptance_stub = r1.acceptance_stub
             if e.spent_usd > ceiling:
                 e.status, e.reason = PARKED, f"budget ceiling ${ceiling} hit at rung 1"
+                exps[idea.number] = e
+                continue
+            # Yao's theater-gate (self-verify upstream of the human gate): a spec whose acceptance
+            # criteria did not compile to a machine-checkable stub does NOT advance — it parks for a
+            # human, rather than handing rung 4 prose it can only eyeball.
+            if not r1.criteria_compiled:
+                e.status, e.reason = NEEDS_HUMAN, "rung-1 acceptance criteria not machine-checkable (theater-gate)"
                 exps[idea.number] = e
                 continue
             e.rung = RUNG_SPEC
