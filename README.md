@@ -21,6 +21,14 @@ design processes exist); agentic tooling skipped it and jumped straight to "gene
 **Read the [MANIFESTO](MANIFESTO.md)** for the full thesis, the named principles, the honest
 costs, and a ~100-line reference sketch of the pattern.
 
+## Watch one request climb
+
+Four minutes, narrated: a sentence typed into a box becomes a written spec, then drawings in a
+real design file, then something clickable, then real code, then a pull request — stopping at a
+person on every step that cannot be taken back. Unmute for the narration.
+
+https://github.com/user-attachments/assets/19ce1770-b819-44f7-bbcc-46f9ff6cd1fc
+
 ## How it works
 
 ```
