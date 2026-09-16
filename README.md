@@ -1,4 +1,6 @@
-# 🪜 Fidelity Ladder System
+<p align="center">
+  <img src="./assets/banner.png" alt="Fidelity Ladder System — progressive fidelity, fails closed" width="820" />
+</p>
 
 > **SDD gates what artifact comes next; FLS gates how real it's allowed to get.**
 
