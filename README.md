@@ -158,7 +158,7 @@ lives in the [MANIFESTO](MANIFESTO.md).
 
 ## OSS & the 12-factor promise
 
-MIT-licensed. The design rule is strict and load-bearing: **the code holds mechanisms; your
+Apache-2.0-licensed. The design rule is strict and load-bearing: **the code holds mechanisms; your
 instance is entirely variables.** Policy lives in your `ANCHOR.md` (PR-reviewed); identity and
 secrets live in env ([instance.env.example](instance.env.example) documents the contract, values
 never in the tree); status surfaces expose kinds and booleans, never secret values. That split

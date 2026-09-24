@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for your interest in the Fidelity Ladder. This repository is the MIT-licensed reference
+Thanks for your interest in the Fidelity Ladder. This repository is the Apache-2.0-licensed reference
 implementation of the pattern described in [MANIFESTO.md](MANIFESTO.md) and
 [docs/pattern.md](docs/pattern.md).
 
@@ -33,4 +33,4 @@ typedefs, never TypeScript, in the JS surfaces); `ruff` clean; fail-closed every
 Keep changes small and reviewable, add tests for behavior, and describe the *why*. Discussions and
 issues are welcome for anything larger before you write code.
 
-Licensed under [MIT](LICENSE).
+Licensed under [Apache License 2.0](LICENSE). By contributing you agree your contribution is licensed under the same terms (Apache-2.0 §5); see NOTICE for attribution.

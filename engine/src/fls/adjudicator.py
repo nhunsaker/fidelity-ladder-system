@@ -186,6 +186,19 @@ _SYSTEM = (
     "right direction but ambiguous scope/size that a person should resolve."
 )
 
+# Appended to the system prompt when the ANCHOR declares `adjudicator.bar: permissive`. It is
+# an instruction to the model AND the policy is re-applied to the parsed verdict below, because
+# an instruction is a request and this system's rule is that the ledger shows it or it did not
+# happen. The prompt is here to make the REASONING useful ("admitted, scope to settle at spec")
+# rather than to be the mechanism.
+_PERMISSIVE = (
+    " This instance runs a PERMISSIVE bar: ambiguous scope or size is NOT a reason to withhold "
+    "admission — the spec rung exists to settle scope, and a person gates every rung after it. "
+    "Reserve 'dock' for an idea that does not trace to the ANCHOR at all or violates a "
+    "non-negotiable; prefer 'admit' everywhere else, and say in one sentence what still needs "
+    "settling."
+)
+
 _JSON = re.compile(r"\{.*\}", re.DOTALL)
 
 
@@ -209,12 +222,25 @@ def adjudicate(idea: Idea, anchor: Anchor, anchor_text: str, judge: Judge,
         f"Altitude: {idea.altitude}\nSource: {idea.source}\n\n"
         "Does this trace to the ANCHOR? Reply with the JSON object only."
     )
-    text, call = judge.complete(prompt, max_tokens=anchor.adjudicator.cost.max_tokens, system=_SYSTEM)
+    permissive = anchor.adjudicator.bar == "permissive"
+    system = _SYSTEM + (_PERMISSIVE if permissive else "")
+    text, call = judge.complete(prompt, max_tokens=anchor.adjudicator.cost.max_tokens, system=system)
     m = _JSON.search(text or "")
+    # Both failure returns below stay needs-human under EVERY bar. `permissive` relaxes what the
+    # gate does with an answer, never what it does without one.
     if not m:
         return Judgment(Verdict.needs_human, f"unparseable adjudicator reply: {text[:120]!r}", call)
     try:
         obj = json.loads(m.group(0))
-        return Judgment(Verdict(obj["verdict"]), str(obj.get("reasoning", ""))[:280], call)
+        verdict, reasoning = Verdict(obj["verdict"]), str(obj.get("reasoning", ""))[:280]
     except (KeyError, ValueError) as e:
         return Judgment(Verdict.needs_human, f"invalid adjudicator schema: {e}", call)
+    if permissive and verdict is Verdict.needs_human:
+        # The gate judged this ambiguous, which under this bar is a note to carry forward rather
+        # than a stop. Keep its sentence: the spec rung and the human reading the screen both
+        # want to know what was unclear, and losing it would turn a reasoned admission into a
+        # silent one.
+        return Judgment(Verdict.admit,
+                        f"admitted on a permissive bar — scope to settle at spec: {reasoning}"[:280],
+                        call)
+    return Judgment(verdict, reasoning, call)

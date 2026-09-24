@@ -1,0 +1,9 @@
+Fidelity Ladder System
+Copyright 2026 Nathan O'Brien
+
+This product includes software developed by Nathan O'Brien (https://github.com/nhunsaker/fidelity-ladder-system).
+
+Licensed under the Apache License, Version 2.0. See LICENSE.
+
+Third-party notices:
+- Phosphor Icons (admin/src/icons.jsx, admin/src/App.jsx): MIT License, Copyright (c) 2023 Phosphor Icons.

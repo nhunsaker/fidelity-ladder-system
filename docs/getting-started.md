@@ -105,16 +105,46 @@ systemd service on `127.0.0.1:8700`, Caddy for TLS with the admin served statica
 `/api/*` proxied to the harness (the admin's default fetch base is same-origin `/api` — no
 build-time config needed). Three hosts: admin, stage, prod.
 
+### 5a. Before you point a domain at it: turn on operator identity
+
+⚠️ **The harness ships unauthenticated.** With no `FLS_IDENTITY_KIND` set, anyone who can reach
+the URL can read every expedition, stop work in flight, and trigger the two endpoints that spend
+money. The `/demo/` visitor surface has its own passcode, so a deploy left like this is
+protected in exactly the wrong direction: the read-only audience is authenticated and the
+audience holding the kill switch is not.
+
+On a laptop that is fine. Before the URL is reachable by anyone else, set four variables:
+
+```bash
+FLS_IDENTITY_KIND=github-oauth       # or oidc, or proxy-header
+FLS_OAUTH_CLIENT_ID=...              # a GitHub OAuth App, NOT a GitHub App
+FLS_OAUTH_CLIENT_SECRET=...
+FLS_SESSION_SECRET=$(openssl rand -base64 32)
+FLS_AUTH_REDIRECT_URI=https://admin.ladder.example.com/api/auth/callback
+FLS_ALLOWED_USERS=your-login         # authentication is not authorization
+```
+
+Two of those bite people, so they are worth reading twice. `FLS_AUTH_REDIRECT_URI` must include
+the `/api` prefix and match the provider's registered callback byte for byte — Caddy's
+`handle_path /api/*` **strips** the prefix, so anything the app derives from the request is
+missing it. And `FLS_ALLOWED_USERS` is the actual gate: a public OAuth app will happily
+authenticate any stranger on the internet, so with it unset (and `FLS_ALLOW_ANY_AUTHENTICATED`
+unset too) every sign-in is refused. Full detail in [modules.md#identity](modules.md#identity).
+
 ## 6. Check your wiring
 
-`GET https://<your-harness>/system` is the install health check: all six module slots
-(auth · ideas · lenses · sources · workers · environment) with `configured`/`available`
+`GET https://<your-harness>/system` is the install health check: all seven module slots
+(auth · identity · ideas · lenses · sources · workers · environment) with `configured`/`available`
 booleans and a docs link per slot — see [modules.md](modules.md), plus a top-level `app`
 boolean (whether the GitHub App auth path is active). Anything unconfigured fails closed and
 says so; fix by setting the env var the slot's docs name, never by editing code. `auth`/
 `sources` are the one pair that fails *open* to a safe local default instead of closed —
 `app: false` / `sources.kind: "local"` with no GitHub env set is the fresh-install steady
 state, not an error to chase.
+
+`identity` is the one slot that reads the other way: its `none` kind reports
+`configured: false, available: false`, because nobody authenticating an exposed console is a
+hazard rather than a posture. If you see that on a deployed instance, it is the thing to fix.
 
 ## The gates you'll own
 

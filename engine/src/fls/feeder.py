@@ -59,13 +59,60 @@ class IdeaSink(Protocol):
 
 @dataclass
 class ListSink:
-    """In-memory sink for tests / dry runs."""
+    """In-memory sink for tests / dry runs. Nothing filed here survives the call — which is the
+    point of a dry run, and the reason `name` exists: a caller must be able to say so."""
     filed: list[FiledIdea] = field(default_factory=list)
+    name: str = "dry-run"
 
     def file(self, candidate: Candidate, source: str) -> object:
         ref = len(self.filed) + 1
         self.filed.append(FiledIdea(ref, candidate))
         return ref
+
+
+@dataclass
+class AdmissionSink:
+    """The standard door, for real — the sink `IdeaSink` always described and nobody wrote.
+
+    Until this existed, `ListSink` was the ONLY implementation in the engine, and both callers
+    used it: the harness endpoint and the MCP tool. So a feeder run appended candidates to an
+    in-memory list that was discarded when the request ended, while the admin reported "N filed"
+    and `ladder_mcp` carried a comment claiming "the harness posts these as real idea-issues."
+    It did not. The feeder's entire stated purpose — "files through the STANDARD door" — was
+    unimplemented.
+
+    This files through exactly the path a human filing hits: `admit_idea`, which runs the real
+    admission gate and can return admit / dock / needs-human. That matters more than convenience.
+    The one-door rule says a source may propose but never admit, and the only way to guarantee
+    that is to make the feeder use the same door, not a parallel one that happens to look similar.
+
+    `admit` is injected rather than imported so this module stays free of the web layer — the
+    same reason `fls.modules` lazy-imports `github_surface`.
+    """
+
+    admit: object                 # async (Idea) -> dict — the real admission gate
+    next_number: object           # () -> int
+    name: str = "admission"
+    filed: list = field(default_factory=list)
+
+    def file(self, candidate: Candidate, source: str) -> object:
+        import asyncio
+
+        from fls.adjudicator import Idea
+        number = self.next_number()
+        idea = Idea(number=number, intent=candidate.intent, success=candidate.success,
+                    altitude=candidate.altitude, source=source)
+        # run_feeder is sync; the gate is async. A fresh loop here keeps the sink usable from
+        # either world rather than forcing run_feeder to become async for one caller.
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            asyncio.run(self.admit(idea))
+        else:
+            raise RuntimeError("AdmissionSink.file() cannot run inside an active event loop; "
+                               "call run_feeder in a worker thread")
+        self.filed.append(FiledIdea(number, candidate))
+        return number
 
 
 @dataclass
@@ -77,6 +124,7 @@ class FeederRun:
     capped_to: int                     # volume_cap applied
     within_envelope: bool              # shadow cost stayed under cost_envelope_usd
     source: str = "studio-brainstorm"
+    scope: str = ""                    # the scope this run actually ideated against
 
     @property
     def cost_usd(self) -> float:
@@ -126,10 +174,18 @@ def build_prompt(params: FeederParams, anchor_text: str, workspace_context: str 
 
 def run_feeder(anchor: Anchor, anchor_text: str, brainstorm: Builder, sink: IdeaSink,
                workspace_context: str = "", max_tokens: int = 1200,
-               source: str = "studio-brainstorm") -> FeederRun:
+               source: str = "studio-brainstorm", scope: str | None = None) -> FeederRun:
     """Run one brainstorm → parse → cap → file through the standard door. Pure w.r.t. the sink:
-    the feeder proposes and files idea-issues; admission remains the gate (no self-admit)."""
+    the feeder proposes and files idea-issues; admission remains the gate (no self-admit).
+
+    `scope` steers THIS run only and leaves the ANCHOR alone. It is the one knob an operator may
+    turn without a PR, and it is safe to expose because it cannot loosen anything: the guardrails
+    are still injected, the volume cap still applies, and every candidate still faces the gate. A
+    scope that wanders off the vessel does not sneak work through — it wastes tokens and docks.
+    None means "use the ANCHOR's", which is what every caller before this parameter did."""
     params = anchor.feeder()
+    if scope and scope.strip() and scope.strip() != params.scope:
+        params = params.model_copy(update={"scope": scope.strip()})
     prompt = build_prompt(params, anchor_text, workspace_context)
     text, call = brainstorm.complete(prompt, max_tokens=max_tokens, system=_BRAINSTORM_SYS)
     calls = [call]
@@ -146,5 +202,5 @@ def run_feeder(anchor: Anchor, anchor_text: str, brainstorm: Builder, sink: Idea
     return FeederRun(
         candidates=candidates, filed=filed, calls=calls,
         proposed=len(candidates), capped_to=params.volume_cap,
-        within_envelope=within_envelope, source=source,
+        within_envelope=within_envelope, source=source, scope=params.scope,
     )

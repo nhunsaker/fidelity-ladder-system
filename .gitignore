@@ -15,3 +15,11 @@ scripts/local-env.sh
 expeditions/conv-beat/
 examples/quickstart/quickstart-ledger.jsonl
 .worktrees/
+
+# uv's lockfile: this repo has never tracked one, and a stray `uv sync` adds it silently.
+engine/uv.lock
+
+# Local run artifacts from running the engine or the smoke ladder outside the box. The pattern
+# above is anchored to the repo root, so a run started from `engine/` lands somewhere git still
+# offers to commit — which is how a tree full of test expeditions ends up in a review.
+engine/expeditions/

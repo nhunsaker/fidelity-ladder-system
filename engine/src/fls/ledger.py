@@ -51,6 +51,20 @@ class Decision:
     # None = unknown/not-yet-observed, the default for every row today. Purely additive:
     # back-compat with every existing jsonl row (missing key -> None via dataclass default).
     outcome: str | None = None
+    # V-login — WHO the human was, as a VERIFIED identity (the provider's opaque subject), when
+    # operator identity is configured. None = unverified/self-declared, which is every row
+    # written before this field existed and every row an unauthenticated instance writes today.
+    #
+    # This is a new column rather than more text in `human_verdict`, and the reason is that the
+    # old approach was actively breaking two things. `human_verdict` was being written as
+    # "kill:alice" / "approve:alice", so `agreed` (judge_verdict == human_verdict) could never
+    # be true, and `calibration.category_slice` buckets on f"{judge}->{human}", which made every
+    # distinct actor its own bucket and quietly destroyed the calibration signal.
+    #
+    # The SUBJECT is stored, never an email or a display name: this file is append-only, so a
+    # PII decision here cannot be taken back. Purely additive — a missing key reads as None, so
+    # every existing jsonl row keeps parsing.
+    actor: str | None = None
 
     @property
     def agreed(self) -> bool | None:

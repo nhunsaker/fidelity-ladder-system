@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- FIDELITY RESOLVING — the brand thesis as a picture.
+
+     "Coarse pixels resolve into crisp vector." Read left to right in three overlapping layers:
+       1 · scatter    loose pixels, everywhere, thinning out
+       2 · pixel bars the five rungs, still made of visible cells — peaks in the middle
+       3 · solid bars the same five rungs as clean vector, arriving at the right edge
+     Every layer sits on the SAME 13px cell, so the bars are visibly made of the noise rather than
+     laid over it, which is the whole claim. Pattern + mask rather than several hundred rects: 2KB
+     instead of 52KB, and the gradients resolve continuously instead of in steps someone picked. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 624 910" width="624" height="910"
+     preserveAspectRatio="xMidYMid slice" role="img"
+     aria-label="Five bars resolving out of coarse pixels into crisp lines">
+  <title>Fidelity resolving</title>
+  <defs>
+    <pattern id="cell" width="13" height="13" patternUnits="userSpaceOnUse">
+      <rect width="11" height="11" fill="#f5f3ee"/>
+    </pattern>
+    <pattern id="scatter" width="143" height="143" patternUnits="userSpaceOnUse">
+      <g fill="#f5f3ee">
+        <rect x="0"   y="52"  width="11" height="11" opacity=".55"/>
+        <rect x="26"  y="0"   width="11" height="11" opacity=".34"/>
+        <rect x="39"  y="91"  width="11" height="11" opacity=".62"/>
+        <rect x="13"  y="117" width="11" height="11" opacity=".28"/>
+        <rect x="65"  y="26"  width="11" height="11" opacity=".48"/>
+        <rect x="104" y="65"  width="11" height="11" opacity=".40"/>
+        <rect x="130" y="13"  width="11" height="11" opacity=".58"/>
+        <rect x="91"  y="130" width="11" height="11" opacity=".31"/>
+        <rect x="52"  y="39"  width="11" height="11" opacity=".26"/>
+        <rect x="117" y="104" width="11" height="11" opacity=".50"/>
+        <rect x="78"  y="78"  width="11" height="11" opacity=".36"/>
+        <rect x="13"  y="13"  width="11" height="11" opacity=".44"/>
+        <rect x="104" y="39"  width="11" height="11" opacity=".22"/>
+      </g>
+    </pattern>
+    <linearGradient id="g-noise" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0"   stop-color="#fff" stop-opacity=".9"/>
+      <stop offset=".42" stop-color="#fff" stop-opacity=".42"/>
+      <stop offset=".78" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="g-pix" x1="0" y1="0" x2="1" y2="0">
+      <stop offset=".04" stop-color="#fff" stop-opacity="0"/>
+      <stop offset=".34" stop-color="#fff" stop-opacity=".85"/>
+      <stop offset=".60" stop-color="#fff" stop-opacity=".9"/>
+      <stop offset=".92" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="g-solid" x1="0" y1="0" x2="1" y2="0">
+      <stop offset=".52" stop-color="#fff" stop-opacity="0"/>
+      <stop offset=".80" stop-color="#fff" stop-opacity=".72"/>
+      <stop offset="1"   stop-color="#fff" stop-opacity="1"/>
+    </linearGradient>
+    <mask id="m-noise"><rect width="624" height="910" fill="url(#g-noise)"/></mask>
+    <mask id="m-pix"><rect width="624" height="910" fill="url(#g-pix)"/></mask>
+    <mask id="m-solid"><rect width="624" height="910" fill="url(#g-solid)"/></mask>
+    <g id="rungs">
+      <rect y="104" width="624" height="52"/>
+      <rect y="273" width="624" height="52"/>
+      <rect y="442" width="624" height="52"/>
+      <rect y="611" width="624" height="52"/>
+      <rect y="780" width="624" height="52"/>
+    </g>
+  </defs>
+  <rect width="624" height="910" fill="url(#scatter)" mask="url(#m-noise)"/>
+  <g mask="url(#m-pix)"   fill="url(#cell)"><use href="#rungs"/></g>
+  <g mask="url(#m-solid)" fill="#f5f3ee"><use href="#rungs"/></g>
+</svg>

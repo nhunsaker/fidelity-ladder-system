@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">
+  <rect x="0" y="0" width="50" height="50" fill="#005eb8"></rect>
+  <rect x="50" y="0" width="50" height="50" fill="#fdb913"></rect>
+  <rect x="0" y="50" width="50" height="50" fill="#e63329"></rect>
+  <rect x="50" y="50" width="50" height="50" fill="#2b2823"></rect>
+<svg x="0" y="0" width="50" height="50" viewBox="0 0 100 100"><text x="46" y="50" text-anchor="middle" dominant-baseline="central" fill="#f5f3ee" font-family="'Caveat',cursive" font-weight="700" font-size="78">F</text></svg>
+<svg x="50" y="0" width="50" height="50" viewBox="0 0 100 100"><g fill="#16130f"><rect x="27.75" y="22" width="10" height="10"></rect><rect x="27.75" y="33.5" width="10" height="10"></rect><rect x="27.75" y="45" width="10" height="10"></rect><rect x="27.75" y="56.5" width="10" height="10"></rect><rect x="27.75" y="68" width="10" height="10"></rect><rect x="39.25" y="68" width="10" height="10"></rect><rect x="50.75" y="68" width="10" height="10"></rect><rect x="62.25" y="68" width="10" height="10"></rect></g></svg>
+<svg x="0" y="50" width="50" height="50" viewBox="0 0 100 100"><text x="50" y="53" text-anchor="middle" dominant-baseline="central" fill="#f5f3ee" font-family="'Archivo',sans-serif" font-weight="600" font-size="80">S</text></svg>
+<svg x="50" y="50" width="50" height="50" viewBox="0 0 100 100"><g stroke="#f5f3ee" stroke-width="6" stroke-linecap="round"><line x1="26" y1="26" x2="74" y2="74"></line><line x1="74" y1="26" x2="26" y2="74"></line></g><g stroke="#f5f3ee" stroke-width="4" stroke-linecap="round"><line x1="42.2" y1="33.8" x2="33.8" y2="42.2"></line><line x1="66.2" y1="57.8" x2="57.8" y2="66.2"></line><line x1="42.2" y1="66.2" x2="33.8" y2="57.8"></line><line x1="66.2" y1="42.2" x2="57.8" y2="33.8"></line></g></svg>
+  <g stroke="#f5f3ee" stroke-width="1.4"><line x1="50" y1="0" x2="50" y2="100"></line><line x1="0" y1="50" x2="100" y2="50"></line></g>
+</svg>

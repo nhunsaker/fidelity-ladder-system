@@ -1,5 +1,11 @@
-"""Rung 5 — the ship flow (hard gate). Draft PR behind a flag -> smoke self-check ->
-stage auto-deploy -> Environment-gated prod promotion -> staged flag flip. Never auto-ships.
+"""Rung 5 — the ship flow. Draft PR behind a flag -> smoke self-check -> stage deploy ->
+Environment-gated prod promotion -> staged flag flip. Never auto-ships to PROD, never merges.
+
+The gate sits between 5a and 5b, not before 5a (founder, 2026-09-11: "we should allow ship to
+stage for review, just not ship to prod or merge without human"). Staging is the artifact a human
+reviews, so gating it behind a human blocks the review it exists to enable. What still cannot
+happen without a person: a merge (nothing here merges), a prod deploy (`promote_to_prod` refuses
+without an approver), and exposure in prod (the flag stays OFF there).
 
 The two-layer safety (Wang/sketch §4e): (1) the GitHub Environment protection rule gates
 stage->prod promotion (a required human reviewer); (2) the feature flag is OFF in prod until
@@ -41,7 +47,15 @@ LEGACY_RUNG_5 = RUNG_FLAG   # re-exported for callers keying policy off the pre-
 
 
 class Deployer(Protocol):
-    def deploy(self, env: str, ref: str) -> bool: ...
+    """Put a ref into an environment. `artifact`, when given, is a directory of ALREADY-BUILT
+    files to publish there.
+
+    The seam copies; it never builds. What to build and how is the vessel's business — declared
+    as `FLS_VESSEL_BUILD_CMD` / `FLS_VESSEL_BUILD_DIR` exactly as the check command already is —
+    and a deploy seam that shelled out to a build would be inventing policy it does not own.
+    Without an artifact the deployers still record the ref, which is all they did before.
+    """
+    def deploy(self, env: str, ref: str, artifact: str | Path | None = None) -> bool: ...
 
 
 @dataclass
@@ -89,13 +103,14 @@ def enforce_reviewability(pkg: PRPackage, line_budget: int) -> None:
         raise ReviewabilityRefused(
             "walkthrough_url is required before rung-5 sign-off — none provided"
         )
-    if line_budget > 0:
-        lines = _diff_line_count(pkg.diff)
-        if lines > line_budget:
-            raise ReviewabilityRefused(
-                f"diff changes {lines} lines, exceeds the {line_budget}-line rung-5 "
-                "reviewability budget (not reviewable in <=10 minutes)"
-            )
+    # SIZE NO LONGER REFUSES ANYTHING. It used to: a diff over `line_budget` was parked here and
+    # again at rung 4. The founder's rule after the 2026-09-16 batch — where the only two size
+    # refusals were a stale-base bug counting 1,450 lines the builds had not written, and the
+    # thirteen that passed had visibly sized themselves to land at 397-400 — is that size is told
+    # to a person, never a reason to throw away finished, tested work. `line_budget` is now the
+    # per-commit TARGET the build session is asked to land blocks in, and what the pull request
+    # quotes in its notes; see `claude_code_builder.size_notes`.
+    _ = line_budget
 
 
 @dataclass
@@ -109,16 +124,35 @@ class ShipResult:
     reviewability_refused: bool = False   # Wu Phase 3 — enforce_reviewability parked this ship
 
 
+def _deploy(deployer: Deployer, env: str, ref: str, artifact) -> bool:
+    """Call a deployer, passing the artifact only when there IS one.
+
+    `Deployer` is a published extension seam (`FLS_MODULES`), so a deployer written against the
+    two-argument protocol must keep working after this change — and it does, in exactly the mode
+    it was written for: no artifact, no third argument. One that cannot take an artifact when one
+    exists fails loudly rather than silently dropping the files it was asked to publish.
+    """
+    if artifact is None:
+        return bool(deployer.deploy(env, ref))
+    return bool(deployer.deploy(env, ref, artifact))
+
+
 def ship_to_stage(flag: str, ref: str, flags: FlagStore, deployer: Deployer,
-                  smoke) -> ShipResult:
-    """Merge -> smoke self-check -> stage auto-deploy, flag ON in stage. Prod stays gated.
-    Reaches sub-rung 5a (RUNG_5A) on success."""
+                  smoke, staged_artifact: str | Path | None = None) -> ShipResult:
+    """Smoke self-check -> stage deploy of `ref`, flag ON in stage. Prod stays gated.
+    Reaches sub-rung 5a (RUNG_5A) on success.
+
+    NOTE — this function does NOT merge, and said it did until 2026-09-11 ("Merge -> smoke
+    self-check -> ..."). There is no merge call here or in any caller: `deployer.deploy(env, ref)`
+    deploys a REF and the draft PR stays a draft PR. In a system whose rule is that a human owns
+    every irreversible action, a docstring claiming this path merges is the exact wrong thing to
+    leave lying around — particularly now that the climb drives it without a human."""
     r = ShipResult()
     r.smoke_passed = smoke()                    # pre-reviewer smoke self-check (Ng#4)
     if not r.smoke_passed:
         r.reason = "smoke self-check failed; not deploying to stage"
         return r
-    r.stage_deployed = deployer.deploy("stage", ref)
+    r.stage_deployed = _deploy(deployer, "stage", ref, staged_artifact)
     if r.stage_deployed:
         flags.set(flag, "stage", True)          # exposed in stage only
         r.sub_rung = RUNG_5A
@@ -141,7 +175,7 @@ def ship_to_stage_reviewed(pkg: PRPackage, line_budget: int, flag: str, ref: str
 
 
 def promote_to_prod(flag: str, ref: str, flags: FlagStore, deployer: Deployer,
-                    approved_by: str | None) -> ShipResult:
+                    approved_by: str | None, staged_artifact: str | Path | None = None) -> ShipResult:
     """Environment protection: prod promotion requires an approver. Then STAGED flag flip.
     Assumes 5a (stage) already happened; reaches sub-rung 5b (RUNG_5B) on success, else stays
     parked at 5a."""
@@ -149,7 +183,11 @@ def promote_to_prod(flag: str, ref: str, flags: FlagStore, deployer: Deployer,
     if not approved_by:
         r.reason = "prod promotion blocked: Environment protection requires a human reviewer"
         return r
-    r.prod_deployed = deployer.deploy("prod", ref)
+    # PROMOTE THE REVIEWED ARTIFACT, never a fresh build. Rebuilding at promotion would publish
+    # bytes no human ever looked at — the branch may have moved, a dependency may have floated,
+    # and the thing signed off on stage would not be the thing that reached prod. "Promote" means
+    # move what was reviewed; anything else is a second, unreviewed deploy wearing its name.
+    r.prod_deployed = _deploy(deployer, "prod", ref, staged_artifact)
     if r.prod_deployed:
         flags.set(flag, "prod", True)           # staged flag flip AFTER promotion + approval
         r.awaiting_signoff = False

@@ -23,6 +23,6 @@ jobs:
         with: { python-version: "3.11" }
       # the test suite exercises the harness (app.py) + github surface + ladder-mcp, so it needs
       # those extras — the pip-core split moved fastapi/httpx/fastmcp out of the core deps (v0.8).
-      - run: pip install -e ".[dev,harness,mcp]"
+      - run: pip install -e ".[dev,harness,mcp,orchestration]"
       - run: ruff check src
       - run: pytest -q

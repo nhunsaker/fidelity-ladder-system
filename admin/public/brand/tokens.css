@@ -1,0 +1,36 @@
+:root {
+  /* ============================================================
+     FLS · DESIGN SYSTEM A — “RESOLUTION”  (FLS-DS-A-1.0)
+     Fidelity made visible: coarse pixels resolve into crisp vector.
+     The palette is the PRIMITIVES of color — true primaries — the way
+     a spec is the primitive of software. Bauhaus-schoolroom plain.
+     ============================================================ */
+
+  /* --- grounds (NEVER pure black — warm near-neutrals, picked not defaulted) --- */
+  --a-paper:      #f5f3ee;   /* primary page ground */
+  --a-paper-2:    #edeae1;   /* card / recessed section ground */
+  --a-ink:        #16130f;   /* text · the crispest fidelity (reserved for TYPE, not fills) */
+  --a-muted:      #6c6659;   /* annotations, rung numbers, meta */
+  --a-line:       #d7d2c6;   /* hairlines, borders */
+
+  /* --- the gate ground: a dark WARM GREY, not black --- */
+  --a-gate:       #2b2823;   /* the terminal quadrant · flagged code · white text rides on it */
+  --a-gate-text:  #f5f3ee;
+
+  /* --- the primaries — rung stops. one dominant per surface, never all three shouting. --- */
+  --a-blue:       #005eb8;   /* rung 1 · SPEC   · the coarsest step */
+  --a-yellow:     #fdb913;   /* rung 2 · WIRE   · ink type rides on yellow */
+  --a-red:        #e63329;   /* rung 3 · the flag · also the single state/error accent */
+
+  /* --- graph-paper grid accent (the schoolroom-chart texture) --- */
+  --a-grid:       #dfe7ee;   /* faint blue-grey ruling, like engineering paper */
+  --a-grid-bold:  #cdd8e2;   /* every 5th line */
+
+  /* --- type roles --- */
+  --a-bitmap: 'Silkscreen', 'Courier New', monospace;      /* LOW fidelity · ONLY inside the mark, never running text */
+  --a-display:'Archivo', 'Arial Narrow', system-ui, sans-serif; /* HIGH fidelity grotesque · headings + wordmark */
+  --a-mono:   'IBM Plex Mono', ui-monospace, monospace;    /* rung numbers, diagram annotations */
+
+  /* --- the ratchet: five hard steps, discrete + one-way (not a gradient) --- */
+  --a-rungs: 5;
+}

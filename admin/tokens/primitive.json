@@ -1,45 +1,122 @@
 {
-  "$description": "Primer-derived primitive scale (GitHub light mode) — the paint. Sorb is the engine: these flow through Style Dictionary into variables.css + a flat TokenSet for @sorb/leaf's SorbProvider. Values match github.com's Primer primitives; the v1 static lens already hand-used them.",
+  "$description": "FLS 'Resolution' primitive scale \u2014 the paint. Warm-neutral grounds + primaries-as-flags (blue = the working route/primary action, red = gate/danger/the number, yellow = await), charcoal gate, never pure black/white. Same token KEYS as the prior Primer scale so semantic.json + every var(--token) consumer recolors with no structural change. Flows through Style Dictionary into variables.css + a flat TokenSet for @sorb/leaf's SorbProvider.",
   "color": {
-    "white": { "$value": "#ffffff", "$type": "color" },
+    "white": {
+      "$value": "#f8f5ec",
+      "$type": "color"
+    },
     "gray": {
-      "0": { "$value": "#f6f8fa", "$type": "color" },
-      "1": { "$value": "#eaeef2", "$type": "color" },
-      "3": { "$value": "#d1d9e0", "$type": "color" },
-      "5": { "$value": "#59636e", "$type": "color" },
-      "9": { "$value": "#1f2328", "$type": "color" }
+      "0": {
+        "$value": "#f5f3ee",
+        "$type": "color"
+      },
+      "1": {
+        "$value": "#e6dfce",
+        "$type": "color"
+      },
+      "3": {
+        "$value": "#d7d2c6",
+        "$type": "color"
+      },
+      "5": {
+        "$value": "#6c6659",
+        "$type": "color"
+      },
+      "9": {
+        "$value": "#16130f",
+        "$type": "color"
+      }
     },
     "blue": {
-      "0": { "$value": "#ddf4ff", "$type": "color" },
-      "5": { "$value": "#0969da", "$type": "color" },
-      "6": { "$value": "#0550ae", "$type": "color" }
+      "0": {
+        "$value": "#e2ebf4",
+        "$type": "color"
+      },
+      "5": {
+        "$value": "#005eb8",
+        "$type": "color"
+      },
+      "6": {
+        "$value": "#00447f",
+        "$type": "color"
+      }
     },
     "green": {
-      "0": { "$value": "#dafbe1", "$type": "color" },
-      "5": { "$value": "#1a7f37", "$type": "color" }
+      "0": {
+        "$value": "#e2ebf4",
+        "$type": "color"
+      },
+      "5": {
+        "$value": "#005eb8",
+        "$type": "color"
+      }
     },
     "yellow": {
-      "0": { "$value": "#fff8c5", "$type": "color" },
-      "6": { "$value": "#9a6700", "$type": "color" }
+      "0": {
+        "$value": "#fdf0cf",
+        "$type": "color"
+      },
+      "6": {
+        "$value": "#7a5c07",
+        "$type": "color"
+      },
+      "5": {
+        "$value": "#fdb913",
+        "$type": "color",
+        "$description": "the mark's amber \u2014 the SOLID await/attention fill; yellow.6 is the text that sits ON it, not a fill"
+      }
     },
     "red": {
-      "0": { "$value": "#ffebe9", "$type": "color" },
-      "5": { "$value": "#cf222e", "$type": "color" }
+      "0": {
+        "$value": "#fbeeed",
+        "$type": "color"
+      },
+      "5": {
+        "$value": "#e63329",
+        "$type": "color"
+      }
     },
     "purple": {
-      "0": { "$value": "#fbefff", "$type": "color" },
-      "5": { "$value": "#8250df", "$type": "color" }
+      "0": {
+        "$value": "#efe9dd",
+        "$type": "color"
+      },
+      "5": {
+        "$value": "#2b2823",
+        "$type": "color"
+      }
     }
   },
   "radius": {
-    "control": { "$value": "6px", "$type": "dimension" },
-    "pill": { "$value": "20px", "$type": "dimension" }
+    "control": {
+      "$value": "5px",
+      "$type": "dimension"
+    },
+    "pill": {
+      "$value": "3px",
+      "$type": "dimension"
+    }
   },
   "space": {
-    "1": { "$value": "4px", "$type": "dimension" },
-    "2": { "$value": "8px", "$type": "dimension" },
-    "3": { "$value": "12px", "$type": "dimension" },
-    "4": { "$value": "16px", "$type": "dimension" },
-    "5": { "$value": "20px", "$type": "dimension" }
+    "1": {
+      "$value": "4px",
+      "$type": "dimension"
+    },
+    "2": {
+      "$value": "8px",
+      "$type": "dimension"
+    },
+    "3": {
+      "$value": "12px",
+      "$type": "dimension"
+    },
+    "4": {
+      "$value": "16px",
+      "$type": "dimension"
+    },
+    "5": {
+      "$value": "20px",
+      "$type": "dimension"
+    }
   }
 }

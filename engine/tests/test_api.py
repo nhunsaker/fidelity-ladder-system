@@ -106,3 +106,69 @@ def test_snapshot_never_leaks_secret_values(tmp_path, monkeypatch):
     for sentinel in ("SENTINEL_webhook_secret", "SENTINEL_github_token",
                      "SENTINEL_anthropic_key", "SENTINEL_skill_key"):
         assert sentinel not in blob
+
+
+# ── what a surface reports about spend and about the GitHub surface ────────────────────────
+
+def test_an_expedition_reports_list_price_as_well_as_metered_spend(tmp_path):
+    """The subscription lane meters $0. A record that carries only `spent` makes every run look
+    free, which is why the admin showed $0.00 for a $5 build."""
+    from fls.adjudicator import Idea
+    from fls.expedition import CLIMBING, Expedition
+    from fls.llm import Call
+    from fls.store import ExpeditionStore
+    store = ExpeditionStore(tmp_path)
+    e = Expedition(77, Idea(77, "a feature", "shipped", "feature"), 4, rung=4, status=CLIMBING)
+    e.add([Call("claude-code", "m", 10, 5, usd=0.0, normalized_usd=5.1,
+                funded_by="subscription")])
+    store.save(e)
+    rec = store.get(77)
+    assert rec["spent"] == 0.0
+    assert rec["normalized_usd"] == 5.1
+
+
+def test_the_thread_names_which_half_of_the_github_surface_is_missing(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from fls import app as appmod
+    from fls.adjudicator import Idea
+    from fls.expedition import CLIMBING, Expedition
+    from fls.store import ExpeditionStore
+    store = ExpeditionStore(tmp_path)
+    store.save(Expedition(78, Idea(78, "x", "y", "feature"), 2, rung=2, status=CLIMBING))
+    appmod.deps.root = tmp_path
+    appmod.deps._store = store
+    appmod.deps.github = None
+    c = TestClient(appmod.app)
+
+    # a token but no repo — the instance this was written for. Saying "no token" would be false.
+    monkeypatch.setenv("GITHUB_TOKEN", "github_pat_x")
+    monkeypatch.setattr("fls.github_surface.REPO", "", raising=False)
+    body = c.get("/expeditions/78/thread").json()
+    assert body["available"] is False
+    assert "FLS_REPO" in body["reason"] and "GITHUB_TOKEN" not in body["reason"]
+
+    # neither: both are named
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    body = c.get("/expeditions/78/thread").json()
+    assert "GITHUB_TOKEN" in body["reason"] and "FLS_REPO" in body["reason"]
+
+
+def test_the_api_reads_the_instance_anchor_not_the_engines(tmp_path, monkeypatch):
+    """The worker honoured FLS_ANCHOR_PATH and the API did not, so a real deployment judged every
+    admission against the ANCHOR shipped with the engine while climbing against the operator's.
+    Found live: GET /anchor reported the example vessel `acme-demo` on an instance whose own
+    ANCHOR names a different one."""
+    import importlib
+
+    other = tmp_path / "instance-ANCHOR.md"
+    other.write_text("# instance\n", encoding="utf-8")
+    monkeypatch.setenv("FLS_ANCHOR_PATH", str(other))
+    import fls.app as appmod
+    reloaded = importlib.reload(appmod)
+    assert reloaded.ANCHOR_PATH == other
+
+    monkeypatch.delenv("FLS_ANCHOR_PATH", raising=False)
+    back = importlib.reload(appmod)
+    assert back.ANCHOR_PATH.name == "ANCHOR.md"
+    assert "instance-ANCHOR" not in str(back.ANCHOR_PATH)

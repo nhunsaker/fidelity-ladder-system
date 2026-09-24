@@ -4,7 +4,16 @@
 admin.ladder.example.com {
 	root * /srv/admin
 	file_server
-	# same-origin API: the admin's default fetch base is /api — proxy it to the harness
+	# same-origin API: the admin's default fetch base is /api — proxy it to the harness.
+	#
+	# ⚠️ `handle_path` STRIPS the matched prefix, so the harness sees /auth/callback, not
+	# /api/auth/callback. Anything the app derives from the request path is therefore missing
+	# /api. That is fine for routing and fatal for OAuth, where the provider exact-matches the
+	# redirect URI — so set FLS_AUTH_REDIRECT_URI explicitly to the FULL public URL including
+	# /api, and register that same string with the provider:
+	#     FLS_AUTH_REDIRECT_URI=https://admin.ladder.example.com/api/auth/callback
+	# (Use `handle` instead of `handle_path` if you would rather the prefix survive; then the
+	# harness must be mounted under /api too. Stripping is the simpler half.)
 	handle_path /api/* {
 		reverse_proxy 127.0.0.1:8700
 	}

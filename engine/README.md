@@ -33,4 +33,4 @@ engine.
 See the [project repository](https://github.com/nhunsaker/fidelity-ladder-system) for the full
 manifesto, the pattern doc, the worked expedition, and `docs/getting-started.md`.
 
-MIT licensed.
+Apache-2.0 licensed.

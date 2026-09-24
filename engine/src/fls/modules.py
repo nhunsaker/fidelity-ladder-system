@@ -13,6 +13,10 @@ reflectable + extensible without changing any behavior:
                                                                     runs — worktree+verify-command is
                                                                     the built-in, historical default,
                                                                     made explicit + registerable)
+  - IDENTITY    ⇐ fls.identity, the 7th slot                       (WHO a human operator is — session
+                                                                    level, as opposed to AUTH's
+                                                                    message level; see the note in
+                                                                    `_identity_status`)
 
 V8-P3 also publishes the **middleware seams** — `before_rung` / `after_rung` / `on_descend` /
 `on_context_assembly` — a registerable hook system (see "SLICE 3" below). A module registers a
@@ -32,9 +36,11 @@ endpoints + secrets. This module reads env for BOOLEANS ONLY.
 """
 from __future__ import annotations
 
+import configparser
 import importlib
 import logging
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -84,6 +90,47 @@ def _auth_status() -> dict:
     return asdict(ModuleStatus(
         slot="auth", kind=kind,
         configured=configured, available=available, docs_url=_docs("auth"),
+        # `scope` exists because an operator now sees two auth-ish slots on the System card and
+        # deserves to know why both are there. AUTH signs and verifies MESSAGES; IDENTITY
+        # establishes a PERSON's session. Neither substitutes for the other.
+        detail={"scope": "message"},
+    ))
+
+
+def _identity_status() -> dict:
+    """IDENTITY: who the human driving the console is (V-login, the 7th slot).
+
+    Booleans and non-secret names only, like every other seam — the kind, whether a provider is
+    wired, whether a session can actually be signed, the POLICY NAME, and an allowlist COUNT.
+    Never the client secret, never the client id, never a login. A count is not a secret; the
+    list of people who can kill your expeditions is operational detail a stranger reading
+    `/system` has no business enumerating.
+
+    `available` is stricter than `configured` on purpose: a provider can be fully wired and the
+    instance still be unable to log anyone in, because `FLS_SESSION_SECRET` is missing (no
+    session can be signed) or because `Policy` names nobody (fail-closed, so every successful
+    sign-in is refused at the last step). Both are the kind of half-deployment that otherwise
+    presents to the operator as "GitHub worked and then it just bounced me".
+    """
+    from fls.identity import Policy, SignedSession, active_kind, resolve
+    kind = active_kind()
+    try:
+        provider = resolve(kind)
+        configured = bool(provider.configured())
+        detail = dict(provider.detail())
+    except Exception as e:  # noqa: BLE001 — an erroring provider is an unavailable provider
+        configured, detail = False, {"error": str(e)[:120]}
+    policy = Policy.from_env()
+    session = SignedSession.from_env()
+    detail.update(policy.detail())
+    detail["scope"] = "session"
+    detail["session_secret_set"] = session.configured
+    detail["redirect_uri_set"] = bool(os.environ.get("FLS_AUTH_REDIRECT_URI"))
+    available = configured and session.configured and policy.configured
+    return asdict(ModuleStatus(
+        slot="identity", kind=kind,
+        configured=configured, available=available, docs_url=_docs("identity"),
+        detail=detail,
     ))
 
 
@@ -95,7 +142,13 @@ def _ideas_status(anchor) -> list[dict]:
     ))]
     has_feeder = any(s.get("kind") == "feeder" for s in anchor.idea_sources)
     # cheap construction, NO network: available() only reads env (endpoint + key presence)
-    feeder_available = SkillServerBuilder(shadow_model=anchor.builder.shadow_model).available()
+    # The feeder runs on whatever builder the ANCHOR declares, not on the skill-server
+    # specifically — see `_workers_status`. Asking the wrong backend made the feeder report
+    # unavailable on every claude-code instance.
+    try:
+        feeder_available = bool(make_builder(anchor).available())
+    except Exception:  # noqa: BLE001
+        feeder_available = False
     out.append(asdict(ModuleStatus(
         slot="ideas", kind="feeder",
         configured=has_feeder, available=feeder_available, docs_url=_docs("ideas"),
@@ -140,6 +193,79 @@ def _lenses_status(anchor) -> list[dict]:
     return out
 
 
+def git_remote(root) -> str | None:
+    """The `origin` remote of the checkout at `root`, as an `owner/repo` slug when it is GitHub.
+
+    Read from `.git/config` with the stdlib rather than shelling out to `git`: a plain filesystem
+    read, the same class as the `isdir`/`access` calls `_deploy_status` makes, so reflection keeps
+    its "no probes" contract and needs no git binary.
+
+    Returns the raw URL for a non-GitHub remote, so a caller's slug check refuses it rather than
+    inventing a github.com URL for a host that is not GitHub. Never raises: a missing path, a bare
+    directory or an unreadable config all mean "no remote", which is the truthful answer.
+    """
+    if not root:
+        return None
+    cfg = Path(root) / ".git" / "config"
+    try:
+        parser = configparser.ConfigParser()
+        parser.read(cfg)
+        url = parser['remote "origin"'].get("url", "").strip()
+    except Exception:  # noqa: BLE001 — not a repo, unreadable, or no origin: all mean "none"
+        return None
+    if not url:
+        return None
+    m = re.match(r"^(?:https?://github\.com/|git@github\.com:)(?P<slug>[^/]+/[^/]+?)(?:\.git)?/?$", url)
+    return m.group("slug") if m else url
+
+
+def anchor_remote(anchor_path) -> str | None:
+    """The repo the CONSTITUTION lives in.
+
+    A THIRD instance fact, distinct from both of the others, and conflating it with either is how
+    an ANCHOR edit gets aimed at the wrong repository:
+      FLS_REPO         — the repo whose ISSUES are expeditions
+      FLS_VESSEL_REPO  — the checkout where CODE lands
+      this             — where ANCHOR.md itself is versioned
+
+    `open_anchor_pr` used to default to FLS_REPO, so on an instance where the constitution lives in
+    one repo and expeditions in another, "Open the PR" would branch off the wrong one — and had
+    that repo happened to contain an ANCHOR.md, it would have committed the instance's constitution
+    into the product's repository.
+
+    `FLS_ANCHOR_REPO` wins when set, because a deployed instance HAS no checkout to derive from:
+    the deploy rsyncs `--exclude .git`, correctly — a server should not carry git metadata. So the
+    env var is the deployment's answer and derivation is the zero-config answer for a developer
+    running against a real clone. An explicit value is only ever set on purpose, which is the same
+    precedence rule the deploy seam follows for FLS_STAGE_DIR.
+    """
+    explicit = os.environ.get("FLS_ANCHOR_REPO", "").strip()
+    if explicit:
+        return explicit
+    return git_remote(Path(anchor_path).parent) if anchor_path else None
+
+
+def _vessel_remote() -> str | None:
+    """Where the builder actually writes code, derived from the checkout itself.
+
+    `FLS_REPO` is the repo whose ISSUES are expeditions; `FLS_VESSEL_REPO` is the checkout a
+    builder writes into and pushes a branch from. They are different jobs and can be different
+    repos, and until now nothing surfaced the second one — the Connections screen could say where
+    decisions are recorded but not where the work lands.
+
+    Read from `.git/config` with the stdlib rather than shelling out to `git`: a plain filesystem
+    read, the same class as the `isdir`/`access` calls `_deploy_status` already makes, so
+    reflection keeps its "no probes" contract and needs no git binary. Derived, not declared —
+    the repo URL is instance identity, which the work-split rule puts in env, and a copy of it in
+    the ANCHOR could drift from the checkout it claims to describe.
+
+    Returns an `owner/repo` slug for a GitHub remote (https or ssh), the raw URL for anything
+    else, or None. Never raises: a missing path, a bare directory or an unreadable config is
+    simply "no vessel remote", which is the truthful answer.
+    """
+    return git_remote(os.environ.get("FLS_VESSEL_REPO"))
+
+
 def _sources_status() -> dict:
     """SOURCES: which built-in is active. Explicit override via `FLS_SOURCE_KIND`; otherwise
     auto-selected — `github` when `FLS_REPO` is set, else the local kind (a fresh install's
@@ -151,11 +277,12 @@ def _sources_status() -> dict:
     if kind == "github":
         configured = bool(prod)
         available = configured and bool(os.environ.get("GITHUB_TOKEN"))
-        detail = {"prod_repo": prod, "dev_repo": dev}
+        detail = {"prod_repo": prod, "dev_repo": dev, "vessel_repo": _vessel_remote()}
     else:
         configured, available = True, True  # local-mode: nothing to configure, no-op-safe
         detail = {"note": "local-mode: no GitHub repo configured; "
-                           "expeditions live only in the local store"}
+                           "expeditions live only in the local store",
+                  "vessel_repo": _vessel_remote()}
     return asdict(ModuleStatus(
         slot="sources", kind=kind,
         configured=configured, available=available, docs_url=_docs("sources"),
@@ -164,17 +291,35 @@ def _sources_status() -> dict:
 
 
 def _workers_status(anchor) -> dict:
-    """WORKERS: who fulfils builder work — kind is the ANCHOR builder backend; key presence via
-    the same llm helpers make_builder uses (api -> ANTHROPIC_API_KEY; skill-server -> endpoint+key)."""
+    """WORKERS: who fulfils builder work. Probes THE BUILDER THAT WOULD ACTUALLY RUN, by asking
+    `make_builder` — the same factory the rungs call.
+
+    It used to re-derive the choice with its own `api` / else-skill-server branch, which silently
+    omitted `claude-code`. A `backend: claude-code` instance was therefore probed for a
+    skill-server endpoint and key it neither has nor needs, and reported NEEDS ATTENTION while its
+    builder was sitting on PATH working perfectly. A reflection that re-implements the decision it
+    is reflecting will drift from it — so it must not re-implement it.
+
+    Construct-only: every backend's `available()` reads env or checks PATH. No network, no spend."""
     cfg = anchor.builder
-    if cfg.backend == "api":
-        ok = ClaudeBuilder().available()          # reads ANTHROPIC_API_KEY only, no network
-    else:
-        ok = SkillServerBuilder(shadow_model=cfg.shadow_model).available()  # endpoint + key
+    try:
+        builder = make_builder(anchor)
+        ok = bool(builder.available())
+        detail = {"fallback": cfg.fallback, "fallback_budget_usd": cfg.fallback_budget_usd,
+                  "builder": type(builder).__name__}
+    except Exception as e:  # noqa: BLE001 — a builder that cannot be built is an unavailable one
+        ok = False
+        detail = {"fallback": cfg.fallback, "fallback_budget_usd": cfg.fallback_budget_usd,
+                  "error": f"{type(e).__name__}: {str(e)[:110]}"}
+    # The kinds this instance will actually accept, straight from the factory that dispatches on
+    # them. A screen that keeps its own copy of this list drifts from it, and told a working
+    # claude-code instance to check its spelling.
+    from fls.llm import BUILDER_BACKENDS
+    detail["kinds"] = list(BUILDER_BACKENDS)
     return asdict(ModuleStatus(
         slot="workers", kind=cfg.backend,
         configured=ok, available=ok, docs_url=_docs("workers"),
-        detail={"fallback": cfg.fallback, "fallback_budget_usd": cfg.fallback_budget_usd},
+        detail=detail,
     ))
 
 
@@ -200,16 +345,140 @@ def _environment_status() -> list[dict]:
     return out
 
 
+def _deploy_status() -> dict:
+    """DEPLOY (V10, the 8th slot): WHERE a rung-5a build lands. Formalizing, not inventing — the
+    `Deployer` Protocol has been in `rung5.py` since the ship flow was written, and
+    `GitHubEnvDeployer` has implemented it for just as long; what was missing is that nothing
+    injected one, nothing declared a kind, and nothing reflected it. So the ladder advertised a
+    5a rung with a dial and a cost estimate behind machinery that was never connected, and no
+    screen could say so.
+
+    Kind is `FLS_DEPLOY_KIND`, else auto-selected: `github-environment` when a repo and token are
+    present (the deployer that can actually create a Deployment), `static-dir` when
+    `FLS_STAGE_DIR` names a writable directory, else `none`.
+
+    `none` is a real, honest posture, not a fault: an instance with no deploy target simply has
+    rung 5a refuse with a reason. It is NOT a hazard the way `identity: none` is — nobody gets
+    hurt, work just parks — so it reports as a default, not a warning.
+
+    Paths and environment names are not secrets; the token is a boolean."""
+    stage_dir = os.environ.get("FLS_STAGE_DIR") or None
+    repo = os.environ.get("FLS_REPO") or None
+    token = bool(os.environ.get("GITHUB_TOKEN"))
+    # Precedence: an explicit FLS_STAGE_DIR beats repo+token. `FLS_REPO` and `GITHUB_TOKEN` are
+    # set for reasons that have nothing to do with deploying (issues are expeditions; the token
+    # posts back), so treating their presence as a deploy instruction lets an unrelated change —
+    # setting FLS_REPO to fix the sources seam — silently move where a 5a build lands.
+    # FLS_STAGE_DIR is only ever set on purpose, so it is the stronger signal.
+    kind = os.environ.get("FLS_DEPLOY_KIND") or (
+        "static-dir" if stage_dir else ("github-environment" if (repo and token) else "none"))
+
+    if kind == "github-environment":
+        configured = bool(repo)
+        available = configured and token
+        detail = {"stage_environment": "staging", "prod_environment": "production",
+                  "repo": repo, "token_present": token}
+    elif kind == "static-dir":
+        configured = bool(stage_dir)
+        # A directory that does not exist or cannot be written is CONFIGURED but UNAVAILABLE —
+        # the distinction the four-state chip exists to draw. Never create it here: reflection
+        # reads, it does not provision.
+        available = bool(stage_dir) and os.path.isdir(stage_dir) and os.access(stage_dir, os.W_OK)
+        detail = {"stage_dir": stage_dir,
+                  "note": "" if available else "path is missing or not writable by this process"}
+    else:
+        configured, available = True, False
+        detail = {"note": "no deploy target configured; rung 5a refuses with a reason rather "
+                          "than parking as though a human were expected"}
+    return asdict(ModuleStatus(
+        slot="deploy", kind=kind, configured=configured, available=available,
+        docs_url=_docs("deploy"), detail=detail,
+    ))
+
+
+def _design_status(anchor) -> dict:
+    """DESIGN (V10, the 9th slot): WHERE a rung-2 candidate is saved. The rung-2 builder keeps
+    owning the WORK; this seam owns the DESTINATION and its reflection — the same split
+    `workers` and `environment` already draw.
+
+    `html` is the reference builder's fragments stored as expedition artifacts: always available,
+    needs nothing, and is the honest default. `figma` draws real frames in a real design file and
+    needs `FLS_FIGMA_FILE_KEY` (the file) plus `FLS_MCP_CONFIG` (the tools the session gets).
+
+    The file KEY is not a secret — it is the identifier in a URL anyone with access already sees.
+    No credential is read here or anywhere in the rung-2 path: the CLI holds the design tool's
+    OAuth on the worker host."""
+    file_key = os.environ.get("FLS_FIGMA_FILE_KEY") or None
+    mcp = os.environ.get("FLS_MCP_CONFIG") or None
+    kind = os.environ.get("FLS_DESIGN_KIND") or ("figma" if file_key else "html")
+    if kind == "figma":
+        configured = bool(file_key)
+        available = configured and bool(mcp)
+        detail = {"file_key": file_key, "mcp_config_set": bool(mcp),
+                  "design_pack": os.environ.get("FLS_DESIGN_PACK") or None}
+        if configured and not available:
+            detail["note"] = ("a design file is named but no MCP config is set, so no session can "
+                              "reach it — rung 2 falls back to the reference builder")
+    else:
+        configured, available = True, True   # html fragments need nothing
+        detail = {"note": "rung-2 candidates are HTML fragments stored as expedition artifacts"}
+    return asdict(ModuleStatus(
+        slot="design", kind=kind, configured=configured, available=available,
+        docs_url=_docs("design"), detail=detail,
+    ))
+
+
+def contradictions(slots: dict) -> list[dict]:
+    """Half-wiring, named.
+
+    `describe()` reflects each seam in ISOLATION, which is how an instance with a GitHub token, a
+    vessel checkout and no `FLS_REPO` renders as a calm `LOCAL DEFAULT` — the posture the docs
+    call "the fresh-install steady state, not an error to chase". It is not that. It is a
+    half-wired instance reported as a clean one, which is the same falsehood the feeder screen
+    was built to kill, one layer out.
+
+    Each entry names the SEAM a human can act on, so the admin can render it as that card's
+    "IS THAT OK?" row rather than inventing a fourth status state. Returns [] on a coherent
+    instance — the common case, and the one that must stay silent."""
+    out: list[dict] = []
+    repo = os.environ.get("FLS_REPO") or None
+    token = bool(os.environ.get("GITHUB_TOKEN"))
+    vessel = os.environ.get("FLS_VESSEL_REPO") or None
+
+    if token and not repo:
+        out.append({"slot": "sources", "reason":
+                    "a GitHub token is configured but FLS_REPO is not, so expeditions are staying "
+                    "in the local store. Set FLS_REPO to the repo whose issues are expeditions."})
+    if vessel and not repo:
+        out.append({"slot": "sources", "reason":
+                    "FLS_VESSEL_REPO names a checkout the worker writes code into, but this "
+                    "instance tracks no source repo, so none of that work becomes an expedition."})
+    deploy_kind = (slots.get("deploy") or {}).get("kind")
+    if deploy_kind == "none":
+        out.append({"slot": "deploy", "reason":
+                    "the ladder declares a 5a-staged rung, but no deploy target is configured — "
+                    "a build that passes rung 4 has nowhere to go for review."})
+    return out
+
+
 def describe(anchor) -> dict:
-    """Reflect all six seams as booleans + kinds + non-secret detail. Read-only, no network.
-    Consumed by `GET /system`; B2's System cards render exactly this."""
+    """Reflect all NINE seams as booleans + kinds + non-secret detail. Read-only, no network.
+    Consumed by `GET /system`; the admin's Modules cards render exactly this.
+
+    `deploy` and `design` (V10) are the two destinations the seven original seams never covered:
+    the seams answer "what implementation fills this engine slot", and neither "where does a
+    rung-5a build land" nor "where is a rung-2 candidate saved" is a slot. Both default to kinds
+    that describe today's behaviour, so an ANCHOR declaring neither resolves exactly as before."""
     return {
         "auth": _auth_status(),
+        "identity": _identity_status(),
         "ideas": _ideas_status(anchor),
         "lenses": _lenses_status(anchor),
         "sources": _sources_status(),
         "workers": _workers_status(anchor),
         "environment": _environment_status(),
+        "deploy": _deploy_status(),
+        "design": _design_status(anchor),
     }
 
 
@@ -258,6 +527,11 @@ class Auth(Protocol):
     """Inbound signature verification + outbound token — extracted from github_surface."""
     def verify_inbound(self, body: bytes, signature_header: str | None) -> bool: ...
     def outbound_token(self) -> str | None: ...
+
+
+# The IDENTITY Protocol itself lives in `fls.identity` (it carries `Principal`/`Challenge` with
+# it, and those are request-path types, not registry types). This module owns only the registry —
+# the same split the SOURCES slot already uses for `github_surface`.
 
 
 @dataclass
@@ -379,7 +653,7 @@ class FeederIdeaSource:
         self._brainstorm = brainstorm
 
     def run(self, anchor, anchor_text: str, sink: IdeaSink) -> FeederRun:
-        brainstorm = self._brainstorm or SkillServerBuilder(shadow_model=anchor.builder.shadow_model)
+        brainstorm = self._brainstorm or make_builder(anchor)
         return run_feeder(anchor, anchor_text, brainstorm, sink)
 
 
@@ -463,6 +737,101 @@ def _environment_worktree(repo_root=None) -> Environment:
     return WorktreeEnvironment(repo_root=repo_root)
 
 
+def _identity_none(**kw):
+    from fls.identity import NoneIdentity
+    return NoneIdentity()
+
+
+def _identity_oidc(**kw):
+    from fls.identity import OidcIdentity
+    return OidcIdentity()
+
+
+def _identity_github_oauth(**kw):
+    from fls.identity import GitHubOAuthIdentity
+    return GitHubOAuthIdentity()
+
+
+def _identity_proxy_header(**kw):
+    from fls.identity import ProxyHeaderIdentity
+    return ProxyHeaderIdentity()
+
+
+def _deploy_none():
+    """The honest no-op. `deploy(env, ref)` returns False ALWAYS — never True, never a silent
+    success. rung 5a reads that as "nowhere to deploy" and refuses with a reason; a deployer that
+    returned True here would fake a stage deploy and let a build be marked 5a-staged with nothing
+    standing behind it."""
+    class _None:
+        kind = "none"
+
+        def deploy(self, env: str, ref: str) -> bool:
+            return False
+    return _None()
+
+
+def _deploy_static_dir():
+    """Write the deployed ref into `FLS_STAGE_DIR/<env>/DEPLOYED`. Deliberately a marker, not a
+    build: what to build and how is the vessel's business (`FLS_VESSEL_TEST_CMD` and friends), and
+    a deploy seam that shelled out to a build command would be inventing policy this seam does not
+    own. The marker is what makes the deploy OBSERVABLE — evidence over claims — and what a
+    static-dir instance's own deploy script consumes."""
+    class _StaticDir:
+        kind = "static-dir"
+
+        def deploy(self, env: str, ref: str, artifact: str | Path | None = None) -> bool:
+            base = os.environ.get("FLS_STAGE_DIR") or ""
+            if not base:
+                return False
+            try:
+                target = Path(base) / env
+                target.mkdir(parents=True, exist_ok=True)
+                if artifact:
+                    # Publish an ALREADY-BUILT directory. Replacing rather than merging, so a file
+                    # deleted in the new build does not survive on the environment as a ghost of
+                    # the last one — a stage showing a page the branch no longer has is its own
+                    # falsehood. The marker is rewritten afterwards so it always names what is
+                    # actually there.
+                    import shutil
+                    src = Path(artifact)
+                    if not src.is_dir():
+                        return False
+                    for child in target.iterdir():
+                        shutil.rmtree(child) if child.is_dir() else child.unlink()
+                    shutil.copytree(src, target, dirs_exist_ok=True)
+                (target / "DEPLOYED").write_text(f"{ref}\n", encoding="utf-8")
+                return True
+            except OSError:
+                return False           # fail closed: an unwritable path is not a deploy
+    return _StaticDir()
+
+
+def _deploy_github_environment():
+    """The existing `GitHubEnvDeployer` — a real GitHub Deployment, Environment-gated for prod.
+    Lazy-imported for the same reason the github source factories are: the registry is framework
+    core and stays free of web/GitHub deps."""
+    from fls.github_surface import GitHubEnvDeployer, RestGitHubClient
+    return GitHubEnvDeployer(RestGitHubClient())
+
+
+def make_deployer(kind: str | None = None):
+    """Resolve the DEPLOY seam to something with `.deploy(env, ref) -> bool`.
+
+    Unknown kind -> the `none` deployer, never a crash and never a fallback to something that
+    deploys. An instance that typos its kind gets refusals with a reason, which is visible, rather
+    than a surprise deploy to a target it did not name."""
+    k = kind or _deploy_status()["kind"]
+    factory = DEPLOYERS.get(k)
+    if factory is None:
+        log.warning("unknown FLS_DEPLOY_KIND %r; refusing to deploy (kind=none)", k)
+        factory = _deploy_none
+    try:
+        return factory()
+    except Exception as e:  # noqa: BLE001 — an erroring deployer is a non-deployer, never a crash
+        log.warning("deploy kind %r failed to construct (%s); refusing to deploy", k, e)
+        return _deploy_none()
+
+
 # kind -> factory registries, pre-populated with the built-ins. Modules extend these.
 WORKERS: dict = {"api": _worker_api, "skill-server": _worker_skill_server}
 IDEAS: dict = {"feeder": _ideas_feeder}
@@ -476,6 +845,17 @@ AUTH: dict = {"github-app": _auth_github_app, "none": _auth_none}
 # ENVIRONMENT ships ONE built-in (`worktree` — the historical implicit default made explicit);
 # `devcontainer`/`nix`/`docker` arrive entirely via FLS_MODULES wiring, same pattern as LENSES.
 ENVIRONMENTS: dict = {"worktree": _environment_worktree}
+# IDENTITY ships `none` (fail-closed: nobody authenticates) and, once the provider slice lands,
+# `oidc` / `github-oauth` / `proxy-header`. A third party can register a kind here exactly as it
+# would an idea source — which is the whole reason this is a NEW registry rather than a widened
+# `Auth` Protocol: adding to a registry cannot break a module that is already in it.
+IDENTITY: dict = {"none": _identity_none, "oidc": _identity_oidc,
+                  "github-oauth": _identity_github_oauth,
+                  "proxy-header": _identity_proxy_header}
+# DEPLOY ships three: `none` (refuses, the honest default), the existing GitHub Deployment path,
+# and a plain directory. A vercel/netlify/ssh kind arrives via FLS_MODULES like any other.
+DEPLOYERS: dict = {"none": _deploy_none, "static-dir": _deploy_static_dir,
+                   "github-environment": _deploy_github_environment}
 
 
 def load_modules(spec: str | None = None) -> list[str]:

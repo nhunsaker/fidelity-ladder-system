@@ -15,7 +15,7 @@ button { font: inherit; }
 :focus-visible { outline: 2px solid var(--color-accent, #0969da); outline-offset: 1px; }
 
 /* ── shell: the 1c rail ── */
-.shell { display: grid; grid-template-columns: 200px 1fr; min-height: 100vh; }
+.shell { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
 .rail {
   background: var(--color-surface, #fff);
   border-right: 1px solid var(--color-border, #d1d9e0);
@@ -31,6 +31,10 @@ button { font: inherit; }
 }
 .nav:hover { background: var(--color-canvas, #f6f8fa); }
 .nav.on { background: var(--color-rung-bg, #ddf4ff); font-weight: 600; box-shadow: inset 3px 0 0 var(--color-accent, #0969da); }
+/* A rail item is a label plus one line saying what the screen is for — the bar for this rail is
+   that someone who has never used FLS can read it and say what the application does. */
+.nav-t { display: flex; flex-direction: column; min-width: 0; }
+.nav-d { font-size: 10px; line-height: 1.35; margin-top: 3px; opacity: .72; font-weight: 400; }
 .nav .n {
   margin-left: auto; font-size: 11px; color: var(--color-fg-muted, #59636e);
   background: var(--color-border-muted, #eaeef2); border-radius: var(--radius-label, 20px); padding: 0 7px;
@@ -50,7 +54,7 @@ button { font: inherit; }
   border-radius: var(--radius-label, 20px); padding: 0 6px; color: #fff;
 }
 .grp-red { background: var(--color-danger, #cf222e); }
-.grp-amber { background: var(--color-attention, #9a6700); }
+.grp-amber { background: var(--color-attention-solid, #fdb913); color: #16130f; }
 .rail-foot { margin-top: auto; padding: 8px 10px; font-size: 10.5px; color: var(--color-fg-muted, #59636e); }
 .main { min-width: 0; display: flex; flex-direction: column; }
 
@@ -97,8 +101,7 @@ button { font: inherit; }
   border-bottom: 1px solid var(--color-border-muted, #eaeef2);
   font-size: 10.5px; font-weight: 600; color: var(--color-fg-muted, #59636e);
   text-transform: uppercase; letter-spacing: .05em; }
-.row { display: grid; grid-template-columns: 44px 1fr 96px 92px 122px 52px 84px;
-  gap: 8px; align-items: center; padding: 7px 12px;
+.row { display: block; padding: 0;
   background: var(--color-surface, #fff); border-bottom: 1px solid var(--color-border-muted, #eaeef2);
   width: 100%; border-left: 0; border-right: 0; border-top: 0; text-align: left; cursor: pointer; }
 .row:hover, .row.sel { background: var(--color-canvas, #f6f8fa); }
@@ -197,6 +200,10 @@ table.t { width: 100%; border-collapse: collapse; font-size: 13px; }
   background: var(--color-canvas, #f6f8fa); border: 1px solid var(--color-border-muted, #eaeef2);
   border-radius: var(--radius-card, 6px); }
 .actor-bar .why { font-size: 11px; }
+/* a verified identity reads as a value, not an editable field */
+.actor-fixed { font: 600 12.5px 'IBM Plex Mono', monospace; color: var(--color-fg, #1c1b19);
+  background: rgba(0,94,184,.07); border: 1px solid rgba(0,94,184,.22); border-radius: 5px;
+  padding: 4px 9px; white-space: nowrap; }
 .ibx { background: var(--color-surface, #fff); border: 1px solid var(--color-border, #d1d9e0);
   border-radius: var(--radius-card, 6px); margin-bottom: 10px; padding: 10px 12px; }
 .ibx-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
@@ -244,3 +251,916 @@ table.t { width: 100%; border-collapse: collapse; font-size: 13px; }
 @media (prefers-reduced-motion: no-preference) {
   .btn, .nav, .chip, .row { transition: background .12s ease; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   FLS "RESOLUTION" THEME LAYER  (applied over the token layer)
+   Palette is delivered by tokens (primitive.json → variables.css); this
+   block adds only what tokens can't express: fonts, the dark rail, the
+   journal dot-grid main, the four-cell mark, and the account footer.
+   Laws: color only ever flags · the gate is charcoal, never black ·
+   two voices — Archivo (display/body) + IBM Plex Mono (data/labels).
+   ═══════════════════════════════════════════════════════════════════════ */
+
+body { font-family: 'Archivo', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; }
+
+/* mono = the ledger voice: numbers, eyebrows, chips, labels, keys */
+.num, .money, .kbd, .art, .mcard-kind, .evi-k, .sect, .rail-group, .sub-h,
+.grp-badge, .src-badge, .mchip, .lbl, .nn-chip, .def-badge, .mcard-slot, .n {
+  font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+}
+/* display grotesque for titles */
+.list-head h1, .pane h2, .m-head, .ibx-int, .detail-head h2 { font-family: 'Archivo', sans-serif; letter-spacing: -.01em; }
+
+/* ── the dark rail ── */
+.rail { background: #16130f; border-right: 0; padding: 18px 0; gap: 0; }
+.brand { color: #f5f3ee; align-items: center; gap: 11px; padding: 0 18px 16px; }
+.brand .mk { border-radius: 4px; box-shadow: 0 0 0 1px rgba(245,243,238,.12); flex: none; }
+.brand .wm { font-family: 'Archivo', sans-serif; font-size: 15px; font-weight: 800; letter-spacing: -.01em; line-height: 1.05; }
+/* width:auto so the flex item fills the rail MINUS its 16px side margins
+   (the base rule's width:100% forced 240px + margins → overflowed the rail). */
+.rail-file { width: auto; margin: 0 16px 16px; padding: 10px 12px; font-weight: 600;
+  display: block; box-sizing: border-box; }
+
+/* each primary area = its own divided panel */
+.navsec { margin: 0 14px 12px; border: 1px solid rgba(245,243,238,.09); background: rgba(245,243,238,.028); border-radius: 7px; overflow: hidden; }
+.rail-group { margin: 0; padding: 11px 14px 9px; background: none; border: 0; letter-spacing: .2em; color: #a89f8d; }
+.nav { color: #cfc7b6; border-radius: 0; padding: 8px 14px; align-items: flex-start; }
+.nav .n { margin-left: 8px; flex: none; }
+.nav-d { font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace; color: #8f8676; letter-spacing: .01em; }
+.nav.on .nav-d { color: #a89f8d; }
+/* a section embedded in another pane: no page padding, no second page title */
+.pane-embed { margin-top: 22px; }
+.pane-sub { font: 600 10px 'IBM Plex Mono', ui-monospace, monospace; letter-spacing: .16em;
+  color: #6c6659; margin: 0 0 10px; text-transform: uppercase; }
+.navsec .nav + .nav { border-top: 1px solid rgba(245,243,238,.05); }
+.nav:hover { background: rgba(245,243,238,.05); }
+.nav.on { background: rgba(0,94,184,.26); color: #f5f3ee; box-shadow: inset 3px 0 0 #4d97e0; font-weight: 600; }
+/* A rail item is a label plus one line saying what the screen is for — the bar for this rail is
+   that someone who has never used FLS can read it and say what the application does. */
+.nav-t { display: flex; flex-direction: column; min-width: 0; }
+.nav-d { font-size: 10px; line-height: 1.35; margin-top: 3px; opacity: .72; font-weight: 400; }
+.nav .n { color: #a89f8d; background: rgba(245,243,238,.08); }
+.nav.on .n { color: #7fb2e8; background: rgba(0,94,184,.28); }
+
+/* account footer (replaces the slim-mode note) */
+.acct { margin: auto 14px 0; padding-top: 12px; border-top: 1px solid rgba(245,243,238,.1);
+  display: flex; align-items: center; gap: 11px; text-decoration: none; }
+.acct-av { width: 34px; height: 34px; border-radius: 50%; background: #005eb8; flex: none;
+  display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 1px rgba(245,243,238,.18); }
+.acct-txt { display: flex; flex-direction: column; min-width: 0; }
+.acct-txt b { font: 600 12.5px 'IBM Plex Mono', monospace; color: #f5f3ee; line-height: 1.2; }
+.acct-txt i { font: 400 10.5px 'IBM Plex Mono', monospace; color: #a89f8d; font-style: normal; white-space: nowrap; }
+.acct-gear { margin-left: auto; color: #a89f8d; flex: none; display: flex; }
+.acct:hover .acct-gear { color: #f5f3ee; }
+.acct-img { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; display: block; }
+.acct-txt b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acct-out { margin-left: auto; flex: none; cursor: pointer; background: none;
+  border: 1px solid rgba(245,243,238,.22); border-radius: 5px; padding: 4px;
+  color: #a89f8d; display: flex; align-items: center; }
+.acct-out:hover { color: #f5f3ee; border-color: rgba(245,243,238,.5); }
+
+/* ── main: the journal dot page ── */
+.main {
+  background-color: var(--color-canvas, #f5f3ee);
+  background-image: radial-gradient(#e0d8c3 1px, transparent 1.1px);
+  background-size: 19px 19px; background-position: 9px -1px;
+}
+.pane, .list-head { background: transparent; }
+
+/* the on-filter chip reads as ink; keep chips squared (radius token = 3px) */
+.chip.on { background: #16130f; border-color: #16130f; color: #f8f5ec; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PHASE 3 — WORKBENCH DECISION CARDS (hifi handoff: "Dark Rail" 2026-08-18)
+   Brings the inbox rows up to the decision-card anatomy: card ground,
+   the five-rung tick-rule ratchet, squared evidence chips, the
+   outlined/primary/danger button set, the needs-human tint, and the
+   big "What needs you" header + spend meter. Additive over the theme layer.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* --- big header: "What needs you" (Archivo 900) + eyebrow + spend meter --- */
+.list-head h1 { font-family: 'Archivo', sans-serif; font-weight: 900; font-size: 27px;
+  letter-spacing: -.015em; line-height: 1; }
+.wb-sub { flex-basis: 100%; order: 99; margin-top: 8px; font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px; letter-spacing: .14em; color: #6c6659; text-transform: uppercase; }
+.wb-spend { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #6c6659;
+  text-transform: uppercase; letter-spacing: .04em; display: flex; align-items: baseline; gap: 6px; }
+.wb-spend b { font-size: 15px; font-weight: 600; color: #2b2823; letter-spacing: 0; }
+.wb-spend .cap { color: #a49a86; }
+
+/* --- decision card: the inbox row as a card on paper ground --- */
+.ibx { background: #f8f5ec; border: 1px solid #d7d2c6; border-radius: 5px;
+  padding: 20px 22px; margin-bottom: 16px; box-shadow: 0 1px 0 rgba(0,0,0,.03); }
+.ibx-head { gap: 12px; align-items: center; }
+.ibx-int { font-family: 'Archivo', sans-serif; font-size: 17px; font-weight: 600; letter-spacing: -.01em; }
+.ibx .num { color: #6c6659; }
+/* needs-human gate tint + the status reads as a red flag (handoff .flagr chip) */
+.ibx.ibx-needs-human { border-color: #e6a49f; background: #fcf1f0; }
+.ibx-needs-human .lbl-needs-human { background: #e63329; color: #fff; }
+
+/* --- the five-rung tick-rule (restyles the Chain/.ladder output) --- */
+.ladder { align-items: flex-end; gap: 5px; }
+.lstep { width: 3px; height: 12px; border-radius: 1px; background: #cfc7b4; }
+.lstep.on { background: #16130f; }            /* completed rung */
+.lstep.cur { background: #005eb8; height: 16px; }  /* current rung */
+.lstep.bad, .lstep.gate { background: #e63329; height: 16px; }  /* the final gate */
+
+/* --- evidence chips: squared, mono, with the flag/route/await/ok variants --- */
+.evi { font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 500;
+  color: #4a4438; background: #f5f3ee; border: 1px solid #d7d2c6; border-radius: 3px;
+  padding: 3px 9px; }
+.evi-k { color: #6c6659; }
+.evi.ok { color: #005eb8; background: #eef4fa; border-color: #b9d0e8; }
+.evi.route { color: #005eb8; background: #e2ebf4; border-color: #b9d0e8; }
+.evi.await { color: #7a5c07; background: #fdf0cf; border-color: #f0d488; }
+.evi.flagr { color: #fff; background: #e63329; border-color: #e63329; }
+.evi.flagr .evi-k { color: rgba(255,255,255,.8); }
+
+/* --- action buttons: outlined base · blue primary · red-text danger --- */
+.ibx .btn { font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 12.5px;
+  padding: 8px 15px; border: 1px solid #c9c0ac; background: #f5f3ee; color: #2b2823; border-radius: 4px; }
+.ibx .btn-pri, .ibx .btn-acc { background: #005eb8; border-color: #005eb8; color: #f5f3ee; }
+.ibx .btn-danger { background: #fbeeed; border-color: #e6a49f; color: #e63329; }
+.inline-act { margin-top: 16px; gap: 10px; }
+
+/* --- tactile press motion + hit targets (handoff behavior spec) --- */
+@media (prefers-reduced-motion: no-preference) {
+  .btn { transition: transform .12s ease, filter .12s ease, background .12s ease; }
+  .btn:active { transform: scale(.97); }
+}
+.ibx .btn, .nav, .rail-file, .chip { min-height: 36px; }  /* ≥44px effective incl. row gaps/padding */
+
+
+/* the screen-reader helper stays: it is general, not the demo's */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+/* ── System · Modules — the seam cards (design: "FLS Admin - Modules", 2026-09-11) ──
+   Three tones per card, so a seam's start is visible at a glance: header band -> card body ->
+   page. The header used to share the card's fill and read as the first data row. A background
+   shift rather than another border — the card already has a hairline and the rows have dividers. */
+.seams { display: flex; flex-direction: column; gap: 14px; margin-top: 14px; }
+.seam { background: #f8f5ec; border: 1px solid #d7d2c6; border-radius: 5px;
+  box-shadow: 0 1px 0 rgba(0,0,0,.03); overflow: hidden; }
+.seam-hazard { border-color: #e6a49f; background: #fcf1f0; }
+.seam-hd { display: flex; align-items: center; gap: 12px; padding: 13px 20px;
+  background: #edeae1; border-bottom: 1px solid #ddd7c8; }
+.seam-hazard .seam-hd { background: #f8e4e2; border-bottom-color: #eec3bf; }
+.seam-slot { font: 600 12px 'IBM Plex Mono', ui-monospace, monospace; letter-spacing: .16em; color: #16130f; }
+.seam-what { font: 400 12.5px 'Archivo', sans-serif; color: #4a4438; flex: 1; }
+/* every state carries a WORD — meaning never rests on colour alone */
+.seam-st { font: 600 10px 'IBM Plex Mono', ui-monospace, monospace; letter-spacing: .08em;
+  padding: 3px 9px; border-radius: 3px; border: 1px solid; white-space: nowrap; }
+.seam-st-active { color: #005eb8; background: #eef4fa; border-color: #b9d0e8; }
+.seam-st-deflt  { color: #6c6659; background: #f5f3ee; border-color: #d7d2c6; }
+.seam-st-attn   { color: #7a5c07; background: #fdf0cf; border-color: #f0d488; }
+.seam-st-hazard { color: #fff;    background: #e63329; border-color: #e63329; }
+.seam-rows { display: grid; grid-template-columns: 118px 1fr; }
+/* #6c6659, not the #8a8062 this started as: at 9.5px that was 3.6:1 on the card and 3.3:1 on
+   the header — an axe `color-contrast` violation on every row of Modules and Feeder. This value
+   clears 4.5:1 on all three surfaces the label sits on (card #f8f5ec, header #edeae1, note #f3f0e6). */
+.seam-k { font: 600 9.5px 'IBM Plex Mono', ui-monospace, monospace; letter-spacing: .14em;
+  color: #6c6659; padding: 11px 0 11px 20px; border-top: 1px solid #ece7db; }
+.seam-v { font: 400 12.5px/1.55 'Archivo', sans-serif; color: #2b2823;
+  padding: 11px 20px 11px 0; border-top: 1px solid #ece7db; }
+.seam-rows .seam-k:first-of-type, .seam-rows .seam-v:first-of-type { border-top: 0; }
+.seam-kind { font: 600 12.5px 'IBM Plex Mono', ui-monospace, monospace; color: #16130f; }
+.seam-opt { font: 500 11.5px 'IBM Plex Mono', ui-monospace, monospace; color: #6c6659; }
+.seam-opt b { color: #16130f; font-weight: 600; }
+.seam-empty { padding: 16px 20px; font: 400 12.5px/1.6 'Archivo', sans-serif; color: #4a4438;
+  background: #f3f0e6; }
+.seam-v code { font: 500 11.5px 'IBM Plex Mono', ui-monospace, monospace; background: #efece3;
+  border: 1px solid #e0dbcd; border-radius: 3px; padding: 1px 5px; color: #2b2823; }
+.seam-foot { border-top: 1px solid #d7d2c6; padding-top: 14px; margin-top: 16px; }
+
+/* ---- System · Feeder ------------------------------------------------------------------
+   Reuses the seam card wholesale (.seam / .seam-hd / .seam-k / .seam-v / .seam-st) because
+   Modules and Feeder are the same kind of object and must not drift into two card styles.
+   Only what the Feeder needs and Modules does not is defined here. */
+
+/* Modules' rows are key/value. The Feeder's carry a VALUE column as well — the current
+   number — so the three-column grid is its own rule rather than an override. */
+.fd-rows { display: grid; grid-template-columns: 168px 1fr auto; }
+.fd-rows .seam-v { padding-right: 12px; }
+/* A card whose rows have no value drops the column rather than filling it with em-dashes.
+   A placeholder in every cell of a column means the column is not real. */
+.fd-rows-two { grid-template-columns: 168px 1fr; }
+.fd-rows-two .seam-v { padding-right: 20px; }
+.fd-n { font: 600 12.5px 'IBM Plex Mono', ui-monospace, monospace; color: #16130f;
+  padding: 11px 20px 11px 0; border-top: 1px solid #ece7db; text-align: right; white-space: nowrap; }
+.fd-n-off { color: #6c6659; font-weight: 400; }
+.fd-rows .fd-n:first-of-type { border-top: 0; }
+
+.fd-prose { padding: 16px 20px; font: 400 13px/1.65 'Archivo', sans-serif; color: #2b2823; }
+.fd-prose p { margin: 0 0 9px; }
+.fd-prose p:last-child { margin: 0; }
+
+.fd-scope { padding: 16px 20px 18px 20px; }
+
+/* The two acts sit side by side because the operator is choosing BETWEEN them, and the
+   choice is the point of the screen. Weight carries which one files. */
+.fd-acts { display: grid; grid-template-columns: 1fr 1fr; }
+.fd-act { padding: 16px 20px 18px 20px; }
+.fd-act + .fd-act { border-left: 1px solid #ece7db; }
+.fd-at { font: 600 12.5px 'IBM Plex Mono', ui-monospace, monospace; color: #16130f; margin-bottom: 5px; }
+.fd-ad { font: 400 12px/1.6 'Archivo', sans-serif; color: #4a4438; margin-bottom: 12px; min-height: 58px; }
+.fd-sink { font: 400 10.5px 'IBM Plex Mono', ui-monospace, monospace; letter-spacing: .06em;
+  color: #6c6659; margin-bottom: 12px; }
+
+/* The result names its sink, which is the whole reason the sink is in the payload. */
+.fd-res { border-top: 1px solid #ece7db; background: #f3f0e6; padding: 14px 20px 16px 20px; }
+.fd-res-bad { background: #fcf1f0; border-top-color: #eec3bf; }
+.fd-rh { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.fd-rt { font: 700 13px 'Archivo', sans-serif; color: #16130f; }
+.fd-rs { font: 400 10.5px 'IBM Plex Mono', ui-monospace, monospace; letter-spacing: .06em; color: #6c6659; }
+.fd-plist { display: grid; grid-template-columns: 22px 1fr auto; gap: 0 10px; }
+.fd-i { font: 400 11px 'IBM Plex Mono', ui-monospace, monospace; color: #6c6659; padding: 5px 0; }
+.fd-p { font: 400 12.5px 'Archivo', sans-serif; color: #2b2823; padding: 5px 0; }
+.fd-lbl { font: 600 9.5px 'IBM Plex Mono', ui-monospace, monospace; letter-spacing: .1em;
+  color: #6c6659; background: #e9e5d8; border: 1px solid #dcd6c6; border-radius: 3px;
+  padding: 2px 7px; align-self: center; }
+
+/* ---- System · Modules -> CONNECTIONS -------------------------------------------------
+   The same /system data read by SERVICE rather than by slot. Denser than the seam cards
+   because it is an index, not a settings editor.
+
+   `padding-block`, NOT `padding: 13px 0`. The shorthand sets the inline padding to 0 at
+   specificity (0,1,1) — higher than the per-cell classes at (0,1,0) — so every horizontal
+   padding below it computes to 0px and the prose runs flush into the value beside it. */
+.conn { display: grid; grid-template-columns: 150px minmax(0,1fr) minmax(0,1fr) auto;
+  align-items: start; }
+.conn > div { border-top: 1px solid #ece7db; padding-block: 13px; }
+.conn > div:nth-child(-n+4) { border-top: 0; }
+.c-svc { padding-left: 20px; padding-right: 12px; }
+.c-name { font: 600 13px 'Archivo', sans-serif; color: #16130f; }
+.c-seam { font: 600 9px 'IBM Plex Mono', ui-monospace, monospace; letter-spacing: .14em;
+  color: #6c6659; margin-top: 3px; }
+.c-for { font: 400 12.5px/1.5 'Archivo', sans-serif; color: #2b2823; padding-right: 40px; }
+.c-at { padding-right: 20px; }
+.c-val { font: 500 12px 'IBM Plex Mono', ui-monospace, monospace; color: #16130f;
+  overflow-wrap: anywhere; }
+.c-env { font: 400 10.5px/1.45 'IBM Plex Mono', ui-monospace, monospace; color: #6c6659;
+  margin-top: 4px; overflow-wrap: anywhere; }
+.c-st { padding-right: 20px; text-align: right; }
+
+/* Half-wiring, named. Rendered only when /system reports a contradiction — silent on a
+   coherent instance, which is the common case and the one that must not cry wolf. */
+.warnband { background: #fdf0cf; border: 1px solid #f0d488; border-radius: 5px;
+  padding: 13px 18px; }
+.warnband-t { font: 700 12.5px 'Archivo', sans-serif; color: #7a5c07; margin-bottom: 7px; }
+.warnband-row { display: grid; grid-template-columns: 92px 1fr; gap: 0 12px; padding: 4px 0; }
+.warnband-k { font: 600 9.5px 'IBM Plex Mono', ui-monospace, monospace; letter-spacing: .12em;
+  color: #7a5c07; padding-top: 2px; }
+.warnband-v { font: 400 12.5px/1.55 'Archivo', sans-serif; color: #4a3c0a; }
+
+/* ---- seam + connection icons -------------------------------------------------------
+   Quiet by decision: 16px, inheriting the label's own colour, so they aid scanning
+   without competing with the VALUES on the right, which are the information. The glyph
+   names the role, never the vendor — a seam's kind changes (sources github|local,
+   design figma|html, identity has four), so a brand mark would be false the moment an
+   instance is wired differently.
+
+   `vertical-align` + a right margin rather than a flex wrapper: the label cells already
+   sit in a grid whose columns are load-bearing, and wrapping them would add a box that
+   has to be kept from disturbing it. Inline is fewer moving parts. */
+.k-ico, .c-ico { display: inline-block; flex-shrink: 0; }
+/* The dial labels are already muted, so the glyph inherits and needs no colour of its own. */
+.k-ico { vertical-align: -2px; margin-right: 6px; opacity: .8; }
+/* The service NAME is ink, and an inherited ink glyph at 16px outweighs a 13px name beside it.
+   An explicit muted colour keeps the icon an aid to scanning rather than a second headline. */
+.c-ico { vertical-align: -3px; margin-right: 8px; color: #8a8175; }
+
+/* A connection whose value has a real destination becomes a link. Only two do — a repo slug and
+   a design-file key — so the affordance must be quiet enough that its ABSENCE on the other rows
+   reads as normal rather than as something broken. Underline on hover only, the ink colour kept,
+   and a small out-arrow so it is identifiable as leaving the console. */
+.c-link { color: inherit; text-decoration: none; border-bottom: 1px solid transparent; }
+.c-link:hover, .c-link:focus-visible { border-bottom-color: #005eb8; color: #005eb8; }
+.c-out { vertical-align: -1px; margin-left: 5px; color: #8a8175; }
+.c-link:hover .c-out, .c-link:focus-visible .c-out { color: #005eb8; }
+
+/* ---- Constitution · non-negotiables ---------------------------------------------------
+   These were chips, which worked only while the text was a hardcoded four-word phrase. The
+   ANCHOR's real entries are "**Lead.** explanation" — a claim plus the thing that makes it
+   checkable — and a chip threw the second half away. A list keeps both and lets the lead
+   carry the weight. */
+.nn-list { margin-top: 10px; display: flex; flex-direction: column; gap: 9px; }
+.nn-item { font: 400 13px/1.55 'Archivo', sans-serif; color: #2b2823;
+  padding-left: 13px; border-left: 2px solid #ddd7c8; }
+.nn-lead { font-weight: 700; color: #16130f; margin-right: 6px; }
+.nn-rest { color: #4a4438; }
+
+/* The GitHub row's second repo: where CODE lands, as opposed to where decisions are recorded.
+   Sits between the value and the env line because it is a value, not configuration — and when
+   both repos are the same it collapses to the words "issues · code" with nothing to repeat. */
+.c-extra { font: 500 11.5px/1.4 'IBM Plex Mono', ui-monospace, monospace; color: #16130f;
+  margin-top: 3px; overflow-wrap: anywhere; }
+.c-extra-k { color: #6c6659; margin-right: 7px; }
+
+/* ---- Budgets & funnel · the flatten ---------------------------------------------------
+   Three wizard steps reached six integers. The steps gated nothing — no step depended on
+   the one before it — so they were not managing complexity, they were hiding how little
+   there was. All six now sit on one page in three titled sections.
+   Columns: what it is | what it does | now -> new. */
+.bkeys { display: grid; grid-template-columns: 210px minmax(0,1fr) 232px; align-items: start; }
+.bkeys > div { border-top: 1px solid #ece7db; padding-block: 14px; }
+.bkeys > div:nth-child(-n+3) { border-top: 0; }
+.bk-name { padding-left: 20px; padding-right: 14px; }
+.bk-id { font: 600 12px 'IBM Plex Mono', ui-monospace, monospace; color: #16130f;
+  display: flex; align-items: center; gap: 7px; }
+.bk-range { font: 400 10.5px 'IBM Plex Mono', ui-monospace, monospace; color: #6c6659;
+  margin-top: 4px; padding-left: 23px; }
+.bk-exp { font: 400 12.5px/1.55 'Archivo', sans-serif; color: #2b2823; padding-right: 30px; }
+.bk-edit { padding-right: 20px; display: flex; align-items: center; gap: 9px; justify-content: flex-end; }
+/* `current: N` used to sit beside an empty input whose PLACEHOLDER was also N, so a filled
+   box and an empty one looked identical and blank-means-keep was invisible. Value, arrow,
+   box: the direction of travel is the layout. */
+.bk-now { font: 600 13px 'IBM Plex Mono', ui-monospace, monospace; color: #16130f; }
+.bk-arrow { color: #a49b86; font: 400 13px 'IBM Plex Mono', ui-monospace, monospace; }
+.bk-in { width: 84px; text-align: right; font: 500 13px 'IBM Plex Mono', ui-monospace, monospace; }
+.bk-in.changed { border-color: #005eb8; box-shadow: 0 0 0 2px rgba(0,94,184,.13); }
+
+/* the bar that replaces steps 2 and 3 — visible WHILE editing, not after committing to navigate */
+.bbar { display: flex; align-items: center; gap: 12px; background: #edeae1;
+  border-top: 1px solid #ddd7c8; padding: 13px 20px; }
+.bbar-n { font: 600 12.5px 'IBM Plex Mono', ui-monospace, monospace; color: #16130f; white-space: nowrap; }
+.bbar-x { font: 400 12px/1.5 'Archivo', sans-serif; color: #4a4438; flex: 1; }
+.bdiff { background: #f3f0e6; padding: 14px 20px 16px 20px; }
+.bdiff-h { font: 700 12.5px 'Archivo', sans-serif; color: #16130f; margin-bottom: 9px; }
+.bdiff-ok { color: #005eb8; font-weight: 600; }
+.bdiff-bad { color: #7a5c07; font-weight: 600; }
+.bdrow { display: grid; grid-template-columns: 210px 1fr auto; gap: 0 12px; padding: 4px 0;
+  font: 500 12px 'IBM Plex Mono', ui-monospace, monospace; color: #2b2823; }
+.bdk { color: #6c6659; }
+.bdv b { color: #005eb8; }
+.bdok { font: 600 12px 'IBM Plex Mono', ui-monospace, monospace; color: #005eb8; }
+
+/* ---- Vessels · standards are the content, not a count -----------------------------------
+   This was a <table> whose "paths · standards" column read "2 standards". The standards ARE
+   what a build is judged against; a count of them tells a reader nothing they can act on. */
+.v-hd { display: flex; align-items: baseline; gap: 11px; padding: 15px 20px 0 20px; flex-wrap: wrap; }
+.v-name { font: 800 19px 'Archivo', sans-serif; letter-spacing: -.01em; color: #16130f; }
+.v-kind { font: 600 10px 'IBM Plex Mono', ui-monospace, monospace; letter-spacing: .1em;
+  color: #6c6659; background: #efece3; border: 1px solid #ddd7c8; border-radius: 3px; padding: 2px 8px; }
+.v-def { font: 600 10px 'IBM Plex Mono', ui-monospace, monospace; letter-spacing: .08em;
+  color: #005eb8; background: #eef4fa; border: 1px solid #b9d0e8; border-radius: 3px; padding: 2px 8px; }
+.v-desc { padding: 8px 20px 16px 20px; font: 400 13px/1.6 'Archivo', sans-serif; color: #2b2823; max-width: 74ch; }
+.v-block { padding: 11px 20px; border-top: 1px solid #ece7db; }
+.v-lbl { font: 600 9.5px 'IBM Plex Mono', ui-monospace, monospace; letter-spacing: .14em;
+  color: #6c6659; display: block; margin-bottom: 5px; }
+.v-lbl-std { padding: 11px 20px 0 20px; border-top: 1px solid #ece7db; margin-bottom: -4px; }
+.v-mono { font: 500 12px 'IBM Plex Mono', ui-monospace, monospace; color: #16130f; }
+.v-std { display: flex; flex-direction: column; }
+.v-std-i { display: grid; grid-template-columns: 26px 1fr; gap: 0 10px; padding: 10px 20px;
+  border-top: 1px solid #ece7db; font: 400 12.5px/1.55 'Archivo', sans-serif; color: #2b2823; }
+.v-std-i:first-child { border-top: 0; padding-top: 12px; }
+/* #6c6659, not the icon colour #8a8175: these are 11px TEXT (4.5:1) not a graphic (3:1). */
+.v-std-n { font: 600 11px 'IBM Plex Mono', ui-monospace, monospace; color: #6c6659; padding-top: 1px; }
+.v-edit { display: flex; align-items: center; gap: 12px; padding: 13px 20px;
+  background: #f3f0e6; border-top: 1px solid #ece7db; }
+.v-edit-x { flex: 1; font: 400 12px/1.6 'Archivo', sans-serif; color: #4a4438; }
+
+/* the compact form reused inside Constitution */
+.v-compact { display: flex; flex-direction: column; }
+.v-c-row { display: flex; align-items: baseline; gap: 10px; padding: 11px 20px;
+  border-top: 1px solid #ece7db; }
+.v-c-row:first-child { border-top: 0; }
+.v-c-name { font: 600 12.5px 'IBM Plex Mono', ui-monospace, monospace; color: #16130f; }
+.v-c-kind { font: 600 9.5px 'IBM Plex Mono', ui-monospace, monospace; letter-spacing: .1em; color: #6c6659; }
+.v-c-x { font: 400 12px 'Archivo', sans-serif; color: #4a4438; flex: 1; }
+
+/* ---- Autonomy · claim, evidence, conclusion --------------------------------------------
+   The screen was one flat six-column table with RECOMMENDATION last on the right — the one
+   thing it exists to deliver, in the position the eye reaches last, worded like a verb and
+   attached to nothing. Cost and human-latency left the decision path: real numbers, but not
+   what a loosening turns on. */
+.au-dials { display: grid; grid-template-columns: 150px 190px minmax(0,1fr) auto; align-items: center; }
+.au-dials > div { border-top: 1px solid #ece7db; padding-block: 12px; }
+.au-dials > div:nth-child(-n+4) { border-top: 0; }
+.au-rung { padding-left: 20px; font: 600 12.5px 'IBM Plex Mono', ui-monospace, monospace; color: #16130f; }
+.au-dial { font: 500 12px 'IBM Plex Mono', ui-monospace, monospace; color: #2b2823; }
+.au-why { font: 400 12.5px/1.5 'Archivo', sans-serif; color: #4a4438; padding-right: 20px; }
+.au-n { padding-right: 20px; text-align: right; font: 600 12.5px 'IBM Plex Mono', ui-monospace, monospace; color: #16130f; }
+
+.au-rec { display: grid; grid-template-columns: 150px 190px minmax(0,1fr); align-items: start; }
+.au-rec > div { border-top: 1px solid #ece7db; padding-block: 13px; }
+.au-rec > div:nth-child(-n+3) { border-top: 0; }
+.au-r-rung { padding-left: 20px; font: 600 12.5px 'IBM Plex Mono', ui-monospace, monospace; color: #16130f; }
+.au-r-do { font: 400 12.5px/1.55 'Archivo', sans-serif; color: #2b2823; padding-right: 20px; }
+/* every state carries a WORD — the pill reads as a verdict, never as a button */
+.au-pill { font: 600 10px 'IBM Plex Mono', ui-monospace, monospace; letter-spacing: .06em;
+  padding: 3px 9px; border-radius: 3px; border: 1px solid; white-space: nowrap; }
+.au-eligible-to-loosen { color: #005eb8; background: #eef4fa; border-color: #b9d0e8; }
+.au-hold { color: #6c6659; background: #efece3; border-color: #d7d2c6; }
+.au-tighten { color: #7a5c07; background: #fdf0cf; border-color: #f0d488; }
+.au-doctrine { background: #edeae1; border-top: 1px solid #ddd7c8; padding: 14px 20px;
+  font: 400 12.5px/1.6 'Archivo', sans-serif; color: #2b2823; }
+.au-doctrine b { color: #16130f; }
+.au-doctrine a { color: #005eb8; }
+
+
+/* --- the artifact strip: what a run produced ------------------------------------------------
+   Replaces the inferred issue/demo/PR chips. No borders: three bordered pills were heavy
+   elements grabbing attention out of proportion to a row whose primary element is the intent
+   line. Separation is spacing, and there is more space around the group than within it so it
+   reads as one thing. */
+/* `.row-open` is display:contents, so the button's children become grid items of `.row`. The
+   strip is therefore a SIBLING grid item and lands in the next column unless it is told to span
+   — which is what put it in a 90px gutter, wrapped and clipped, on the first deploy. Spanning
+   every column drops it onto its own line under the intent, which is where it belongs. */
+/* SIX columns for six children. The template had seven, because it was written when a <Chain>
+   chip trio sat between the status label and the money — 122px of it. Removing Chain left its
+   column behind, so every later child shifted one slot left and the action button landed in the
+   52px money column: "Approve" needs 58px and was clipped to "Approv". */
+.row-open { display: grid; grid-template-columns: 44px 1fr 96px 92px 104px minmax(88px, max-content);
+  gap: 8px; align-items: center; padding: 7px 12px; width: 100%;
+  background: none; border: 0; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.strip { display:flex; flex-wrap:wrap; align-items:baseline; gap:3px 16px; padding:0 12px 7px 58px; }
+.art { display:inline-flex; align-items:baseline; gap:6px; background:none; border:0; padding:0;
+  font:500 11.5px 'IBM Plex Mono', ui-monospace, monospace; color:#16130f; cursor:pointer; }
+.art .g { color:#005eb8; font-size:10px; }
+.art.ext .g { color:#6c6659; }
+.art .lb { color:#6c6659; font-weight:400; }
+.art:hover .vv, .art:focus-visible .vv { border-bottom:1px solid #005eb8; }
+.art.on { color:#005eb8; } .art.on .lb { color:#005eb8; }
+.art-none { display:block; padding:0 12px 7px 58px;
+  font:400 11.5px 'Archivo', sans-serif; font-style:italic; color:#8a8175; }
+
+
+/* Contrast: #8a8175 and #a49b86 were chosen in the design frames and failed 4.5:1 against the
+   paper grounds — 12 axe violations on the built page. Both are now the palette's own muted ink
+   (#6c6659), which clears it. The ANCHOR's accessibility floor is not advisory.
+
+   ══ THE DEMO SURFACE ═════════════════════════════════════════════════════════════════════
+   Design: "FLS Demo — Entry and request / In flight / Gates / Revisions and finish / Edges",
+   approved 2026-09-12. Ported from `demo-shell.css` in the design project.
+
+   This page had no brand on it at all — a 46rem column of generic cards on the default ground,
+   while /app carried the full FLS shell. It also had eleven cards of identical weight, so the
+   decision the page was waiting on read exactly as loud as the attachment note.
+
+   The direction is THE PAGE IS THE LADDER. The five rungs are the left spine and each says what
+   it produces, so the words mean something before you arrive at them; artifacts attach to their
+   rung; revision notes sit on the thing they remade. The brand's own thesis is "fidelity made
+   visible: coarse pixels resolve into crisp vector", so the layout is the ratchet rather than a
+   stack of cards that mention one.
+
+   Colour carries the ANCHOR's own semantics and never carries meaning alone:
+     ink    resolved      blue  current / act      yellow  your turn      red  stopped, errors
+   Ink for "done" replaced a green that was not in the palette at all. */
+
+.dm { min-height: 100vh; background-color: var(--paper, #f5f3ee);
+  background-image: radial-gradient(#e5decb 1px, transparent 1.1px);
+  background-size: 19px 19px; background-position: 9px -1px; color: #16130f; }
+
+/* the ink band: enough brand to pass a blurry glance, and nothing an operator would need */
+.dm-top { background: #16130f; display: flex; align-items: center; gap: 13px; padding: 14px 30px; }
+.dm-top img { border-radius: 4px; box-shadow: 0 0 0 1px rgba(245,243,238,.12); }
+.dm-wm { font-family: 'Archivo', system-ui, sans-serif; font-size: 14px; font-weight: 800;
+  letter-spacing: -.01em; line-height: 1.05; color: #f5f3ee; }
+.dm-tag { font: 400 11.5px 'Archivo', system-ui, sans-serif; color: #8f8676; margin-left: 4px;
+  padding-left: 14px; border-left: 1px solid rgba(245,243,238,.14); }
+.dm-who { margin-left: auto; font: 400 11px 'IBM Plex Mono', ui-monospace, monospace; color: #8f8676; }
+
+/* stretch, not start: the ladder is a spine and a spine that stops two thirds of the way down
+   reads as a rendering accident. */
+.dm-main { display: grid; grid-template-columns: 206px minmax(0, 1fr); align-items: stretch;
+  max-width: 1100px; margin: 0 auto; }
+
+/* ---- the ladder: a progress indicator that is actually a map ---- */
+.dm-ladder { padding: 24px 0 24px 22px; border-right: 1px solid #e2dccd; align-self: stretch;
+  background: rgba(237,234,225,.5); }
+.dm-ladder ol { list-style: none; margin: 0; padding: 0; }
+.dm-lhd { font: 600 9.5px 'IBM Plex Mono', ui-monospace, monospace; letter-spacing: .2em;
+  color: #6c6659; margin: 0 0 14px 34px; }
+.rung { position: relative; padding: 0 18px 20px 34px; }
+.rung:last-child { padding-bottom: 0; }
+.rung::before { content: ''; position: absolute; left: 9px; top: 16px; bottom: -2px; width: 1px;
+  background: #d7d2c6; }
+.rung:last-child::before { display: none; }
+.rung .pip { position: absolute; left: 3px; top: 3px; width: 13px; height: 13px; border-radius: 50%;
+  border: 1.5px solid #c9c2b1; background: #f5f3ee; box-sizing: border-box; }
+.rung .nm { font: 600 12.5px 'Archivo', system-ui, sans-serif; color: #6c6659; display: block;
+  line-height: 1.2; }
+.rung .mk { font: 400 10.5px/1.35 'Archivo', system-ui, sans-serif; color: #6c6659; display: block;
+  margin-top: 3px; }
+/* resolved — ink, and a CHECK, so the meaning is a shape before it is a colour */
+.rung.done .pip { background: #16130f; border-color: #16130f; }
+.rung.done .pip::after { content: '✓'; position: absolute; inset: 0; color: #f5f3ee;
+  font: 700 8.5px/13px 'Archivo', system-ui, sans-serif; text-align: center; }
+.rung.done .nm { color: #2b2823; }
+.rung.done .mk { color: #6c6659; }
+.rung.at::after { content: ''; position: absolute; left: -22px; top: -2px; bottom: 12px; width: 3px;
+  background: #005eb8; border-radius: 0 2px 2px 0; }
+.rung.at .pip { background: #005eb8; border-color: #005eb8; box-shadow: 0 0 0 3px rgba(0,94,184,.15); }
+.rung.at .nm { color: #16130f; font-weight: 700; }
+.rung.at .mk { color: #4a4438; }
+.rung.you .pip { background: #fdb913; border-color: #fdb913; }
+.rung.you .nm { color: #16130f; font-weight: 700; }
+.rung.you .mk { color: #4a4438; }
+.rung .turn { display: inline-block; margin-top: 6px; font: 600 9px 'IBM Plex Mono', ui-monospace, monospace;
+  letter-spacing: .1em; background: #fdb913; color: #16130f; border-radius: 3px; padding: 2px 6px; }
+.rung.halt .pip { background: #e63329; border-color: #e63329; }
+.rung.halt .nm { color: #16130f; font-weight: 700; }
+
+.dm-col { padding: 24px 30px 40px 28px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.dm-h1 { font-family: 'Archivo', system-ui, sans-serif; font-size: 23px; font-weight: 900;
+  letter-spacing: -.015em; line-height: 1.15; margin: 0; max-width: 26ch; }
+.dm-sub { font: 400 12.5px/1.6 'Archivo', system-ui, sans-serif; color: #6c6659; margin: 7px 0 0;
+  max-width: 62ch; }
+
+.dm-card { background: #f8f5ec; border: 1px solid #d7d2c6; border-radius: 5px;
+  box-shadow: 0 1px 0 rgba(0,0,0,.03); overflow: hidden; }
+.dm-card.lead { border-color: #b9d0e8; box-shadow: 0 1px 0 rgba(0,0,0,.03), 0 0 0 3px rgba(0,94,184,.07); }
+.dm-card.fin { border-color: #16130f; }
+.dm-hd { display: flex; align-items: center; gap: 10px; padding: 12px 18px; background: #edeae1;
+  border-bottom: 1px solid #ddd7c8; }
+.dm-hd h2, .dm-hd h3 { font: 700 13px 'Archivo', system-ui, sans-serif; margin: 0; color: #16130f; }
+.dm-pad { padding: 16px 18px; }
+.dm-note { font: 400 12px/1.6 'Archivo', system-ui, sans-serif; color: #6c6659; margin: 6px 0 0;
+  max-width: 64ch; }
+.dm-p { font: 400 13px/1.65 'Archivo', system-ui, sans-serif; color: #2b2823; margin: 0; max-width: 66ch; }
+/* THE ASK, DEMOTED. It was the loudest block on the page — 15px/600 ink, often four lines,
+   above the fold — while the only thing on screen that was actually changing sat smaller and
+   lower. It is a sentence the visitor wrote themselves a minute ago: it needs to be legible and
+   findable, not first. Emphasis by de-emphasis — the live card did not get bigger, its
+   competitor got quieter. Design: "FLS Demo - In flight (revised)", approved 2026-09-13. */
+.dm-ask { font: 400 12.5px/1.65 'Archivo', system-ui, sans-serif; color: #6c6659; margin: 0;
+  max-width: 68ch; }
+.dm-lab { display: block; font: 600 10px 'IBM Plex Mono', ui-monospace, monospace;
+  letter-spacing: .14em; color: #6c6659; margin: 0 0 6px; }
+
+/* every chip carries a WORD — meaning never rests on colour */
+.dm-chip { font: 600 10px 'IBM Plex Mono', ui-monospace, monospace; letter-spacing: .08em;
+  padding: 3px 9px; border-radius: 3px; border: 1px solid; white-space: nowrap; display: inline-block; }
+.dm-chip.go { color: #005eb8; background: #eef4fa; border-color: #b9d0e8; }
+.dm-chip.you { color: #7a5c07; background: #fdf0cf; border-color: #f0d488; }
+.dm-chip.done { color: #2b2823; background: #efece3; border-color: #d7d2c6; }
+.dm-chip.stop { color: #fff; background: #e63329; border-color: #e63329; }
+
+/* ONE primary per screen. Stop stays tertiary: it is not destructive enough to earn red, and red
+   is spoken for. A quiet exit that is easy to find beats a loud one that is easy to hit. */
+.dm-b { display: inline-block; border-radius: 4px; padding: 11px 18px; font: 600 12.5px 'IBM Plex Mono', ui-monospace, monospace;
+  border: 1px solid; min-height: 44px; box-sizing: border-box; line-height: 20px; cursor: pointer;
+  text-decoration: none; text-align: center; }
+.dm-b.pri { background: #005eb8; color: #f5f3ee; border-color: #005eb8; }
+.dm-b.sec { background: #f5f3ee; color: #2b2823; border-color: #c9c2b1; }
+.dm-b.qui { background: transparent; color: #6c6659; border-color: #ddd7c8; }
+.dm-b:disabled { background: #efece3; color: #6c6659; border-color: #ddd7c8; cursor: default; }
+.dm-brow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.dm-brow .sp { flex: 1; }
+
+.dm-fld { width: 100%; box-sizing: border-box; background: #fffdf8; border: 1px solid #c9c2b1;
+  border-radius: 4px; padding: 11px 12px; font: 400 13px/1.6 'Archivo', system-ui, sans-serif;
+  color: #16130f; min-height: 44px; }
+textarea.dm-fld { min-height: 92px; resize: vertical; }
+.dm-hint { font: 400 11.5px/1.5 'Archivo', system-ui, sans-serif; color: #6c6659; margin: 6px 0 0;
+  max-width: 62ch; }
+.dm-err { font: 600 12px/1.5 'Archivo', system-ui, sans-serif; color: #e63329; margin: 6px 0 0; }
+
+/* the yellow band: it is your turn, and what the turn is */
+.dm-turn { display: flex; align-items: center; gap: 12px; padding: 13px 18px; background: #fdf0cf;
+  border: 1px solid #f0d488; border-left: 3px solid #fdb913; border-radius: 5px; flex-wrap: wrap; }
+.dm-turn .t { font: 700 14px 'Archivo', system-ui, sans-serif; color: #16130f; }
+.dm-turn .s { font: 400 12.5px 'Archivo', system-ui, sans-serif; color: #4a4438; }
+
+/* ---- the live step ---- */
+.dm-work { display: flex; gap: 13px; align-items: flex-start; }
+/* The text column takes the width it is given rather than the width its longest sentence happens
+   to want: the cap bar below it is a fixed measure, and letting it inherit a shrink-to-fit column
+   made the bar as wide as whatever `means` said that step — which pushed its two labels
+   ("0:37 SO FAR" and "STOPS ITSELF AT 10:00") into each other on the shorter ones. */
+.dm-work > span:last-child { flex: 1; min-width: 0; }
+.dm-work .doing { display: block; font: 700 14.5px 'Archivo', system-ui, sans-serif; color: #16130f; }
+.dm-work .means { font: 400 12.5px/1.55 'Archivo', system-ui, sans-serif; color: #4a4438;
+  display: block; margin-top: 3px; max-width: 58ch; }
+/* THE CLOCK, IN A FIXED CORNER. It is the one number on the page that changes every second —
+   the visitor's proof the thing is alive — and it used to trail the heading in the body, shifting
+   horizontally as the word before it changed length. Tabular figures so the digits do not dance. */
+.dm-clk { margin-left: auto; font: 500 11.5px 'IBM Plex Mono', ui-monospace, monospace;
+  color: #6c6659; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.dm-clk i { font-style: normal; color: #a49b86; }
+.dm-spin { width: 15px; height: 15px; border-radius: 50%; border: 2px solid #b9d0e8;
+  border-top-color: #005eb8; flex: none; margin-top: 2px; animation: dm-turn 1s linear infinite; }
+@keyframes dm-turn { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .dm-spin { animation: none; } }
+/* A DEADLINE, not an estimate: nothing records how long a step usually takes, so a bar implying
+   otherwise would invent the one number this system may not invent. */
+/* It was drawn as a progress bar and labelled "STOPS AT 10 MIN / most finish sooner", which a
+   person reads as "6% done" — the one number this system may not invent. The end-stop tick makes
+   the track a distance to a wall rather than a fill to 100%, and both ends of the label now speak
+   the same unit (0:35 · 10:00) so the ratio needs no arithmetic. */
+.dm-cap { margin-top: 14px; width: 430px; max-width: 100%; }
+.dm-cap .bar { height: 6px; background: #e6e0d2; border-radius: 3px; position: relative; }
+.dm-cap .bar i { display: block; height: 100%; background: #005eb8; border-radius: 3px; }
+.dm-cap .bar i.warm { background: #fdb913; }
+.dm-cap .bar u { position: absolute; right: 0; top: -3px; bottom: -3px; width: 2px;
+  background: #b3a893; border-radius: 1px; }
+.dm-cap .lbl { font: 500 10.5px 'IBM Plex Mono', ui-monospace, monospace; letter-spacing: .06em;
+  color: #8a8175; margin-top: 7px; display: flex; font-variant-numeric: tabular-nums; }
+.dm-cap .lbl b { margin-left: auto; font-weight: 600; color: #6c6659; }
+.dm-cap .lbl b.warm { color: #7a5c07; }
+
+/* THE CARD FOOTER — WHERE STOP LIVES.
+   "Stop this" used to sit alone in a second bordered card a hundred pixels below the spinner,
+   right-aligned, as far from the thing it cancels as the layout allowed — and under a sentence
+   saying the request had never started, while the card above it was visibly running. One state,
+   one card: the exit belongs in the card whose work it ends, and it says which run it stops. */
+.dm-foot { display: flex; align-items: center; gap: 14px; padding: 13px 18px; background: #efece3;
+  border-top: 1px solid #ddd7c8; flex-wrap: wrap; }
+.dm-foot .dm-hint { margin: 0; }
+/* the same strip, holding the question instead of the button */
+.dm-foot.asking { display: block; }
+.dm-halt { width: 15px; height: 15px; border-radius: 50%; background: #e63329; flex: none;
+  margin-top: 2px; position: relative; }
+.dm-halt::after { content: '×'; position: absolute; inset: 0; color: #fff;
+  font: 700 12px/15px 'Archivo', system-ui, sans-serif; text-align: center; }
+
+/* ---- candidates: side by side, because comparing them is the only task here ---- */
+.dm-cands { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px;
+  list-style: none; margin: 0; padding: 0; }
+.dm-cand { background: #f8f5ec; border: 1px solid #d7d2c6; border-radius: 5px; display: flex;
+  flex-direction: column; overflow: hidden; }
+.dm-cand .top { padding: 13px 15px 0 15px; flex: 1; }
+.dm-cand .n { font: 600 9.5px 'IBM Plex Mono', ui-monospace, monospace; letter-spacing: .16em; color: #6c6659; }
+.dm-cand h3 { font: 700 13.5px/1.3 'Archivo', system-ui, sans-serif; margin: 7px 0 0; color: #16130f; }
+.dm-cand p { font: 400 12px/1.55 'Archivo', system-ui, sans-serif; color: #4a4438; margin: 7px 0 13px; }
+.dm-cand .foot { padding: 0 15px 14px 15px; display: flex; flex-direction: column; gap: 8px;
+  align-items: stretch; }
+.dm-cand .see { font: 500 11.5px 'IBM Plex Mono', ui-monospace, monospace; color: #005eb8;
+  text-decoration: none; border-bottom: 1px solid #b9d0e8; align-self: flex-start; }
+/* decided — ink, the palette's colour for resolution, not a green from nowhere */
+.dm-cand.chosen { border-color: #16130f; box-shadow: 0 0 0 2px rgba(22,19,15,.08); }
+.dm-cand .bar { background: #16130f; color: #f5f3ee; font: 600 9.5px 'IBM Plex Mono', ui-monospace, monospace;
+  letter-spacing: .14em; padding: 6px 15px; }
+/* The two not taken. De-emphasised with a RECESSED GROUND, not opacity: `opacity:.62` dropped
+   their text under 4.5:1 and produced six contrast violations on the built page. It is also the
+   thing the visual lens warns about directly — washing a whole element out lets the background
+   bleed through instead of making a deliberate colour choice. */
+.dm-cand.passed { background: #f2efe5; border-color: #e2dccd; }
+.dm-cand.passed h3 { color: #4a4438; }
+
+/* ---- facts ---- */
+.dm-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  border-top: 1px solid #ece7db; }
+.dm-facts > div { padding: 14px 16px; border-left: 1px solid #ece7db; }
+.dm-facts > div:first-child { border-left: 0; }
+.dm-facts .k { font: 600 9.5px 'IBM Plex Mono', ui-monospace, monospace; letter-spacing: .14em; color: #6c6659; }
+.dm-facts .v { font: 700 16px 'Archivo', system-ui, sans-serif; color: #16130f; margin-top: 6px; }
+.dm-facts .v small { font: 400 11.5px 'Archivo', system-ui, sans-serif; color: #6c6659; display: block; margin-top: 2px; }
+
+/* ---- revisions: the sequence is the content, so the numbers stay ---- */
+.dm-revs { counter-reset: dmr; display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
+.dm-rev { display: grid; grid-template-columns: 26px 96px minmax(0, 1fr); gap: 0 12px;
+  align-items: baseline; padding: 13px 18px; border-top: 1px solid #ece7db; }
+.dm-rev:first-child { border-top: 0; }
+.dm-rev .i { counter-increment: dmr; font: 600 11px 'IBM Plex Mono', ui-monospace, monospace; color: #6c6659; }
+.dm-rev .i::before { content: counter(dmr); }
+.dm-rev .at { font: 600 9px 'IBM Plex Mono', ui-monospace, monospace; letter-spacing: .1em; color: #6c6659;
+  background: #f1eee6; border: 1px solid #d7d2c6; border-radius: 3px; padding: 3px 7px; text-align: center; }
+.dm-rev .said { font: 400 12.5px/1.55 'Archivo', system-ui, sans-serif; color: #2b2823;
+  white-space: pre-wrap; overflow-wrap: anywhere; }
+/* provenance, not a result: amber says "this exists because you asked for it" */
+.dm-remade { margin: 0 0 12px; padding: 9px 12px; font: 400 12px/1.55 'Archivo', system-ui, sans-serif;
+  background: #fdf6e3; border: 1px solid #f0d488; border-left: 3px solid #fdb913; border-radius: 3px;
+  color: #4a4438; overflow-wrap: anywhere; }
+.dm-remade b { color: #7a5c07; }
+
+.dm-done-hd { display: flex; align-items: center; gap: 12px; padding: 16px 18px; background: #16130f; }
+.dm-done-hd .t { font: 800 15px 'Archivo', system-ui, sans-serif; color: #f5f3ee; }
+/* On the INK band, not on paper. The blanket #a49b86 -> #6c6659 that fixed contrast against the
+   paper grounds took this line the wrong way — 6.71:1 down to 3.25:1, under the 4.5 floor, dark
+   grey on black. A colour fix is per-GROUND, never per-file. axe did not catch it because the
+   finished card only renders for a run that has finished, and none had when it last ran. */
+.dm-done-hd .s { font: 400 12px 'Archivo', system-ui, sans-serif; color: #b8ae99; }
+.dm-tick { width: 19px; height: 19px; border-radius: 50%; background: #f5f3ee; position: relative; flex: none; }
+.dm-tick::after { content: '✓'; position: absolute; inset: 0; color: #16130f;
+  font: 700 12px/19px 'Archivo', system-ui, sans-serif; text-align: center; }
+
+.dm-banner { display: block; padding: 12px 15px; background: #fdf1f0; border: 1px solid #e6a49f;
+  border-left: 3px solid #e63329; border-radius: 4px; font: 400 12.5px/1.55 'Archivo', system-ui, sans-serif;
+  color: #4a4438; margin: 0; }
+.dm-empty { text-align: center; padding: 34px 18px; }
+.dm-empty .big { font: 800 17px 'Archivo', system-ui, sans-serif; color: #16130f; margin: 14px 0 0; }
+.dm-empty .sm { font: 400 12.5px/1.6 'Archivo', system-ui, sans-serif; color: #6c6659;
+  margin: 8px auto 0; max-width: 44ch; }
+
+.dm-file { display: flex; align-items: center; gap: 10px; padding: 11px 12px; border: 1px dashed #c9c2b1;
+  border-radius: 4px; background: #fffdf8; flex-wrap: wrap; }
+.dm-file .nm { font: 500 12.5px 'Archivo', system-ui, sans-serif; color: #2b2823; }
+.dm-file .sz { font: 400 11.5px 'IBM Plex Mono', ui-monospace, monospace; color: #6c6659; }
+.dm-count { font: 400 11px 'IBM Plex Mono', ui-monospace, monospace; color: #6c6659; margin-left: auto; }
+.dm-count.over { color: #e63329; font-weight: 600; }
+.dm-labrow { display: flex; align-items: baseline; }
+
+/* ---- narrow: the ladder lies down, nothing is dropped ---- */
+@media (max-width: 820px) {
+  .dm-main { grid-template-columns: minmax(0, 1fr); }
+  /* The rungs live inside an <ol> (the landmark fix), so the row has to be the LIST, not the
+     nav around it — laying out the nav made flex items of the heading and the list, and the
+     rungs stayed a column with their connectors still drawn vertically. */
+  .dm-ladder { border-right: 0; padding: 11px 8px; margin: 14px 14px 0 14px;
+    border: 1px solid #e2dccd; border-radius: 5px; }
+  .dm-ladder ol { display: flex; gap: 0; }
+  .dm-lhd { display: none; }
+  .rung { flex: 1; padding: 0; text-align: center; }
+  .rung::before { top: 5px; left: -50%; width: 100%; height: 1px; bottom: auto; }
+  .rung:first-child::before { display: none; }
+  .rung:last-child::before { display: block; }
+  /* display:block matters: the desktop pip is position:absolute, which blockifies it for free.
+     Switching to relative here left an INLINE span, and an inline box ignores width and height —
+     so every pip collapsed to nothing and the rail showed bare connector lines. */
+  .rung .pip { position: relative; display: block; left: auto; top: auto; margin: 0 auto;
+    width: 11px; height: 11px; z-index: 1; }
+  .rung.done .pip::after { font-size: 7px; line-height: 11px; }
+  .rung .nm { font-size: 8.5px; font-family: 'IBM Plex Mono', ui-monospace, monospace; margin-top: 6px;
+    letter-spacing: .04em; }
+  .rung .mk, .rung .turn { display: none; }
+  .rung.at::after { display: none; }
+  .dm-col { padding: 14px 16px 34px 16px; }
+  .dm-top { padding: 13px 16px; }
+  .dm-tag { display: none; }
+}
+
+/* ══ SIGN IN ══════════════════════════════════════════════════════════════════════════════
+   Design: "FLS Sign in", approved 2026-09-12. One layout, both doors.
+
+   Split screen: the form gets a quiet column with nothing competing, the brand gets the other
+   half. The right panel is not decoration — it is the thesis in the token file drawn literally
+   ("coarse pixels resolve into crisp vector"), so the five rungs assemble out of pixel noise
+   left to right. The picture IS the product, which is the only reason a picture belongs here. */
+.si { min-height: 100vh; display: grid; grid-template-columns: 1fr 1fr; background: #f5f3ee;
+  color: #16130f; }
+.si-form { padding: 30px 34px 26px 34px; display: flex; flex-direction: column;
+  background-color: #f5f3ee;
+  background-image: radial-gradient(#e9e2d1 1px, transparent 1.1px);
+  background-size: 19px 19px; background-position: 9px -1px; }
+.si-mark { display: flex; align-items: center; gap: 10px; }
+.si-mark img { border-radius: 4px; }
+.si-mark .wm { font: 800 13px/1.05 'Archivo', system-ui, sans-serif; letter-spacing: -.01em; color: #16130f; }
+.si-box { margin: auto 0; width: 100%; max-width: 340px; align-self: center; }
+.si-h { font: 900 24px/1.18 'Archivo', system-ui, sans-serif; letter-spacing: -.02em; margin: 0;
+  text-align: center; }
+.si-sub { font: 400 12.5px/1.6 'Archivo', system-ui, sans-serif; color: #6c6659; margin: 9px 0 0;
+  text-align: center; }
+.si-f + .si-f { margin-top: 13px; }
+.si-full { width: 100%; }
+.si-foot { font: 400 11px/1.6 'Archivo', system-ui, sans-serif; color: #6c6659; margin: 20px 0 0;
+  text-align: center; }
+.si-foot a { color: #6c6659; border-bottom: 1px solid #ddd7c8; text-decoration: none; }
+.si-other { margin-top: auto; }
+.si-bad { font: 600 11.5px/1.5 'Archivo', system-ui, sans-serif; color: #e63329; margin: 7px 0 0; }
+.si-warn { display: block; padding: 10px 12px; margin: 16px 0 0; background: #fdf6e3;
+  border: 1px solid #f0d488; border-left: 3px solid #fdb913; border-radius: 3px;
+  font: 400 11.5px/1.55 'Archivo', system-ui, sans-serif; color: #4a4438; }
+.si-warn b { color: #7a5c07; }
+.si .dm-fld.bad { border-color: #e63329; background: #fdf1f0; }
+
+/* Providers get equal weight because none of them is recommended — styling one as the primary
+   would invent a preference the instance does not have. */
+.si-provs { display: grid; gap: 9px; margin-top: 22px; }
+.si-prov { display: flex; align-items: center; justify-content: center; gap: 9px; min-height: 44px;
+  border: 1px solid #c9c2b1; border-radius: 4px; background: #fffdf8;
+  font: 600 12.5px 'Archivo', system-ui, sans-serif; color: #2b2823; text-decoration: none;
+  cursor: pointer; }
+.si-prov svg { flex: none; }
+
+.si-brand { position: relative; background: #2b2823; overflow: hidden; display: flex;
+  flex-direction: column; justify-content: flex-end; padding: 34px; }
+.si-brand .pix { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+/* The ink, painted live over the ground. Sits between the static dissolve and the veil, so the
+   panel degrades to a real picture rather than a hole when WebGL is unavailable. */
+.si-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+/* The veil earns the copy its contrast. Weighted to the bottom, where the words are — the shader
+   damps the field there too, because a veil dark enough to guarantee contrast over full-strength
+   ink would flatten the whole panel. */
+.si-brand .veil { position: absolute; inset: 0;
+  background: linear-gradient(to top, rgba(28,25,21,.94) 0%, rgba(28,25,21,.72) 22%,
+              rgba(28,25,21,.18) 46%, rgba(28,25,21,0) 68%); }
+.si-brand .say { position: relative; }
+.si-eyebrow { font: 600 10px 'IBM Plex Mono', ui-monospace, monospace; letter-spacing: .24em;
+  color: rgba(245,243,238,.72); margin: 0; }
+.si-head { font: 800 26px/1.22 'Archivo', system-ui, sans-serif; letter-spacing: -.02em;
+  color: #f5f3ee; margin: 13px 0 0; max-width: 15ch; }
+.si-line { font: 400 12.5px/1.6 'Archivo', system-ui, sans-serif; color: rgba(245,243,238,.84);
+  margin: 12px 0 0; max-width: 34ch; }
+.si-rungs { display: flex; gap: 6px; margin-top: 20px; flex-wrap: wrap; }
+.si-rungs span { font: 600 9px 'IBM Plex Mono', ui-monospace, monospace; letter-spacing: .1em;
+  color: rgba(245,243,238,.9); border: 1px solid rgba(245,243,238,.28); border-radius: 3px;
+  padding: 4px 7px; }
+
+/* Narrow: the panel goes above the form and shrinks to a band. It is dropped rather than
+   squeezed into a stripe with unreadable text — a brand panel that cannot be read is only cost. */
+@media (max-width: 820px) {
+  .si { grid-template-columns: minmax(0, 1fr); min-height: 100vh; }
+  .si-brand { order: -1; padding: 22px; min-height: 180px; }
+  .si-head { font-size: 20px; }
+  .si-line, .si-rungs { display: none; }
+}
+
+/* The one plain-text button on the demo: "remove" beside an attached file. A button, because it
+   acts rather than navigates — styled as a link because that is what it reads as. */
+.dm-file .lnk { background: none; border: 0; padding: 0; cursor: pointer;
+  font: 600 11.5px 'IBM Plex Mono', ui-monospace, monospace; color: #005eb8;
+  border-bottom: 1px solid #b9d0e8; margin-left: auto; }
+.dm-sum { white-space: pre-wrap; max-width: 74ch; }
+
+/* Sign out — the workbench rail's control, on the demo's band. Same icon, same affordance. */
+.dm-out { flex: none; cursor: pointer; background: none; border: 1px solid rgba(245,243,238,.22);
+  border-radius: 5px; padding: 6px; color: #a89f8d; display: flex; align-items: center;
+  margin-left: 12px; min-height: 30px; }
+.dm-out:hover { color: #f5f3ee; border-color: rgba(245,243,238,.5); }
+.dm-out:focus-visible { outline: 2px solid #4d97e0; outline-offset: 2px; }
+
+/* The two steps on the finished card. Numbered because they are a sequence — staging the build
+   and turning the flag on are different acts and doing the second first shows you nothing. */
+.dm-steps { margin: 0; padding-left: 1.3rem; display: flex; flex-direction: column; gap: .7rem; }
+.dm-steps li { font: 400 12.5px/1.6 'Archivo', system-ui, sans-serif; color: #2b2823; max-width: 68ch; }
+.dm-steps b { color: #16130f; }
+.dm-steps a { color: #005eb8; }
+.dm-steps code { font-size: 11px; }
+
+/* What the ladder deliberately did not do. Stated as the system's behaviour rather than the
+   pull request's current state, so none of it can quietly become false later. */
+.dm-left { margin: 0; padding-left: 1.2rem; display: flex; flex-direction: column; gap: .55rem; }
+.dm-left li { font: 400 12.5px/1.6 'Archivo', system-ui, sans-serif; color: #4a4438; max-width: 70ch; }
+.dm-left b { color: #16130f; }
+
+/* CLOSE — ink, deliberately not red.
+   Red in this palette is the flag and the error, and closing a finished run is the safest thing
+   on the page: it tidies one browser's view and changes nothing about the run, its pull request
+   or its record. Painting the harmless button with the alarming colour would leave nothing to
+   say with when something IS wrong — and Stop, the one act that ends a run, is the button that
+   would need it. Ink is the palette's colour for resolved, which is what a closed run is. */
+.dm-b.ink { background: #16130f; color: #f5f3ee; border-color: #16130f; }
+
+/* SOMETHING TO TRY — an inset panel on the request card, deliberately quieter than the card it
+   sits in. The blue ask header is the one accent on this screen and the suggestion must not
+   compete with it: a visitor with their own idea should read past this without effort. */
+.dm-try {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  background: #f3efe4;
+  border: 1px dashed #c9c2b1;
+  border-radius: 4px;
+}
+
+/* THE OPTIONS on a question card. Buttons that FILL the box rather than sending — the founder's
+   copy says the visitor submits from the box, and a one-tap send would make a misread letter
+   unrecoverable. */
+.dm-opts { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.dm-opts li { margin: 0; }
+.dm-opts .dm-b { width: 100%; text-align: left; }
+
+/* IT ASKED YOU SOMETHING — the same warm treatment as a gate waiting on a decision, because
+   that is what it is: the cheapest decision on the board, on a run that has spent one rung. */
+.lbl-await-answer { background: var(--color-attention-subtle, #fff8c5); color: var(--color-attention-fg, #9a6700); }
+
+/* THE CAUSE BLOCK — why a run stopped, on the operator's detail screen.
+   Bordered on the left like a quotation, because that is what the tail is: the failing step's
+   own last words, quoted rather than summarised. Collapsed by default — forty lines of a session
+   transcript is evidence, not a headline. */
+.cause { margin-top: 10px; }
+.cause-tail {
+  margin: 8px 0 0;
+  padding: 10px 12px;
+  max-height: 260px;
+  overflow: auto;
+  font: 11px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--color-fg-default, #1f2328);
+  background: var(--color-canvas-subtle, #f6f8fa);
+  border: 1px solid var(--color-border-muted, #eaeef2);
+  border-left: 3px solid var(--color-danger, #cf222e);
+  border-radius: 3px;
+}
+
+/* THE ASK — the one card that is not a section of the page.
+   Every card header shared one band, so the request box read as the eleventh thing to look at
+   rather than the thing to do. It carries the blue the primary button carries, because they are
+   the same act: this is where you start. */
+.dm-hd.ask { background: #005eb8; border-bottom-color: #004f9c; }
+.dm-hd.ask h2 { color: #f5f3ee; }
+
+/* STOPPING — the one irreversible act on the visitor surface, so it is the one that gets red.
+   Close is ink (it tidies a view), Stop is red (it ends a run). The confirmation sits inside
+   the decision card rather than in a modal: the thing being stopped, its step and its spend all
+   stay on screen while the question is answered, which a dialog over the top would hide. */
+.dm-stop {
+  margin-top: 14px;
+  padding: 14px 16px;
+  background: #fdf0ef;
+  border: 1px solid #f2c9c6;
+  border-left: 3px solid #e63329;
+  border-radius: 3px;
+}
+.dm-stop-q {
+  margin: 0 0 4px;
+  font: 600 14px 'Archivo', system-ui, sans-serif;
+  color: #16130f;
+}
+/* 5.93:1 on paper, and the only red button on the surface. */
+.dm-b.warn { background: #d02b22; color: #fff; border-color: #d02b22; }
+.dm-b.warn:hover:not(:disabled) { background: #b8241c; border-color: #b8241c; }

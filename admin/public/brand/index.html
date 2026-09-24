@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FLS Brand Assets — Resolution (DS-A-1.0)</title>
+<link rel="icon" href="./favicon.svg">
+<!-- Design System A "Resolution" tokens (source of truth) -->
+<link rel="stylesheet" href="./tokens.css">
+<style>
+  /* Self-contained asset gallery. Not linked from the app nav (standalone reference).
+     Fonts self-host in the app; this page falls back to system faces if they aren't loaded. */
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--a-paper, #f5f3ee); color: var(--a-ink, #16130f);
+    font-family: var(--a-mono, 'IBM Plex Mono', ui-monospace, monospace);
+    background-image: radial-gradient(var(--a-line, #e5decb) 1px, transparent 1.1px);
+    background-size: 19px 19px; background-position: 9px -1px;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 40px 24px 80px; }
+  header { border-bottom: 2px solid var(--a-ink, #16130f); padding-bottom: 20px; margin-bottom: 8px; display: flex; gap: 18px; align-items: center; }
+  header img { width: 64px; height: 64px; border-radius: 6px; box-shadow: 0 0 0 1px rgba(22,19,15,.12); }
+  h1 { font-family: var(--a-display, 'Archivo', 'Arial Narrow', sans-serif); font-weight: 900; font-size: 30px; margin: 0; letter-spacing: -.015em; line-height: 1; }
+  .sub { color: var(--a-muted, #6c6659); font-size: 12px; letter-spacing: .1em; margin-top: 8px; text-transform: uppercase; }
+  h2 { font-family: var(--a-display, 'Archivo', sans-serif); font-weight: 800; font-size: 13px; letter-spacing: .18em; text-transform: uppercase; color: var(--a-muted, #6c6659); margin: 44px 0 14px; border-bottom: 1px solid var(--a-line, #d7d2c6); padding-bottom: 6px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 16px; }
+  .cell { background: var(--a-paper-2, #f8f5ec); border: 1px solid var(--a-line, #d7d2c6); border-radius: 5px; padding: 18px; text-align: center; }
+  .cell.dark { background: var(--a-gate, #2b2823); }
+  .cell img { max-width: 100%; height: 68px; object-fit: contain; }
+  .cell .cap { font-size: 10.5px; color: var(--a-muted, #6c6659); margin-top: 12px; word-break: break-all; }
+  .cell.dark .cap { color: #8f8676; }
+  .wm { background: var(--a-paper-2, #f8f5ec); border: 1px solid var(--a-line, #d7d2c6); border-radius: 5px; padding: 22px; margin-bottom: 12px; }
+  .wm img { max-width: 100%; height: 56px; }
+  .swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+  .sw { border: 1px solid var(--a-line, #d7d2c6); border-radius: 5px; overflow: hidden; }
+  .sw .chip { height: 54px; }
+  .sw .meta { padding: 8px 10px; font-size: 11px; background: #fff; }
+  .sw .meta b { display: block; color: var(--a-ink, #16130f); }
+  .sw .meta span { color: var(--a-muted, #6c6659); }
+  .type-row { padding: 14px 0; border-bottom: 1px solid var(--a-line, #d7d2c6); }
+  .type-row:last-child { border-bottom: 0; }
+  .type-row .role { font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: var(--a-muted, #6c6659); }
+  .disp { font-family: var(--a-display, 'Archivo', sans-serif); font-weight: 900; font-size: 26px; }
+  .mono { font-family: var(--a-mono, monospace); font-size: 15px; }
+  .note { color: var(--a-muted, #6c6659); font-size: 11.5px; line-height: 1.6; margin-top: 10px; }
+  a { color: var(--a-blue, #005eb8); }
+  .favrow { display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap; }
+  .favrow figure { margin: 0; text-align: center; }
+  .favrow img { display: block; }
+  .favrow figcaption { font-size: 10px; color: var(--a-muted, #6c6659); margin-top: 6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <img src="./mark-full.svg" alt="FLS Resolution mark">
+    <div>
+      <h1>FLS Brand Assets</h1>
+      <div class="sub">Design System A — "Resolution" · FLS-DS-A-1.0</div>
+    </div>
+  </header>
+  <p class="note">The idea made visible: fidelity resolving — a coarse hand sketch → discrete pixels → clean vector → a gate. One primary dominates per surface; <b>red only ever flags</b>; the gate is never pure black. Full spec + do/don't in <a href="./README.md">README.md</a>. Tokens: <a href="./tokens.css">tokens.css</a>.</p>
+
+  <h2>Marks</h2>
+  <div class="grid">
+    <div class="cell"><img src="./mark-full.svg" alt="mark-full"><div class="cap">mark-full.svg<br>app icon · ≥40px</div></div>
+    <div class="cell"><img src="./mark-reduced.svg" alt="mark-reduced"><div class="cap">mark-reduced.svg<br>24–40px · dense UI</div></div>
+    <div class="cell dark"><img src="./mark-mono-knockout.svg" alt="mark-mono-knockout"><div class="cap">mark-mono-knockout.svg<br>dark grounds</div></div>
+    <div class="cell"><img src="./mark-mono-ink.svg" alt="mark-mono-ink"><div class="cap">mark-mono-ink.svg<br>light grounds</div></div>
+  </div>
+
+  <h2>Wordmarks</h2>
+  <div class="wm"><img src="./wordmark-horizontal.svg" alt="wordmark horizontal"><div class="cap" style="text-align:left;color:var(--a-muted,#6c6659);font-size:10.5px;margin-top:10px">wordmark-horizontal.svg — primary lockup</div></div>
+  <div class="wm"><img src="./wordmark-stacked.svg" alt="wordmark stacked" style="height:72px"><div class="cap" style="text-align:left;color:var(--a-muted,#6c6659);font-size:10.5px;margin-top:10px">wordmark-stacked.svg — narrow / square</div></div>
+  <p class="note">⚠️ Wordmark SVGs reference <b>Archivo</b> + <b>IBM Plex Mono</b> by name (text not outlined). Self-hosted in the app; if a face is missing they fall back to a system grotesque/mono.</p>
+
+  <h2>Favicons</h2>
+  <div class="favrow">
+    <figure><img src="./favicon.svg" width="48" height="48" alt=""><figcaption>favicon.svg</figcaption></figure>
+    <figure><img src="./favicon-32.png" width="32" height="32" alt=""><figcaption>favicon-32</figcaption></figure>
+    <figure><img src="./favicon-16.png" width="16" height="16" alt=""><figcaption>favicon-16</figcaption></figure>
+    <figure><img src="./apple-touch-icon-180.png" width="60" height="60" alt="" style="border-radius:12px"><figcaption>apple-touch-180</figcaption></figure>
+    <figure><img src="./favicon.ico" width="32" height="32" alt=""><figcaption>favicon.ico</figcaption></figure>
+  </div>
+
+  <h2>Palette — primitives of color</h2>
+  <div class="swatches">
+    <div class="sw"><div class="chip" style="background:#f5f3ee"></div><div class="meta"><b>--a-paper</b><span>#f5f3ee · page ground</span></div></div>
+    <div class="sw"><div class="chip" style="background:#edeae1"></div><div class="meta"><b>--a-paper-2</b><span>#edeae1 · card ground</span></div></div>
+    <div class="sw"><div class="chip" style="background:#16130f"></div><div class="meta"><b>--a-ink</b><span>#16130f · type</span></div></div>
+    <div class="sw"><div class="chip" style="background:#6c6659"></div><div class="meta"><b>--a-muted</b><span>#6c6659 · meta</span></div></div>
+    <div class="sw"><div class="chip" style="background:#d7d2c6"></div><div class="meta"><b>--a-line</b><span>#d7d2c6 · hairline</span></div></div>
+    <div class="sw"><div class="chip" style="background:#2b2823"></div><div class="meta"><b>--a-gate</b><span>#2b2823 · gate (not black)</span></div></div>
+    <div class="sw"><div class="chip" style="background:#005eb8"></div><div class="meta"><b>--a-blue</b><span>#005eb8 · rung 1 SPEC</span></div></div>
+    <div class="sw"><div class="chip" style="background:#fdb913"></div><div class="meta"><b>--a-yellow</b><span>#fdb913 · rung 2 WIRE</span></div></div>
+    <div class="sw"><div class="chip" style="background:#e63329"></div><div class="meta"><b>--a-red</b><span>#e63329 · rung 3 flag</span></div></div>
+  </div>
+
+  <h2>Type roles</h2>
+  <div class="type-row"><div class="role">Display / wordmark — Archivo 500–900</div><div class="disp">What needs you</div></div>
+  <div class="type-row"><div class="role">Mono / annotations — IBM Plex Mono 400–600</div><div class="mono">3 DECISIONS · OLDEST 2H · EVIDENCE INLINE</div></div>
+  <div class="type-row"><div class="role">Hand + Bitmap — Caveat 700 / Silkscreen (mark only, never running text)</div><div class="note" style="margin-top:4px">These appear only inside the Resolution mark (the F and the pixel L).</div></div>
+
+  <p class="note" style="margin-top:36px">Standalone asset index — not linked from the app. Deployed at <code>/brand/</code>. Source: design handoff <em>FLS Admin — Workbench (Dark Rail)</em>, 2026-08-18.</p>
+</div>
+</body>
+</html>

@@ -39,7 +39,14 @@ def test_kill_parks_and_ledgers(tmp_path):
     assert rec["status"] == "parked"
     assert "killed by nathan" in rec["reason"]
     led = appmod.deps.store.ledger()
-    assert any(d.human_verdict == "kill:nathan" for d in led.rows)
+    # `human_verdict` is a BARE verdict again. It used to be written as "kill:nathan", which
+    # meant Decision.agreed (judge_verdict == human_verdict) could never be true and
+    # calibration.category_slice bucketed on f"{judge}->{human}" — so every distinct actor
+    # became its own bucket. The actor now has its own column.
+    assert any(d.human_verdict == "kill" for d in led.rows)
+    # ...and with no identity configured it stays None: this instance verified nobody, and the
+    # ledger says so rather than implying the typed name was checked.
+    assert all(d.actor is None for d in led.rows)
 
 
 def test_kill_404_unknown(tmp_path):

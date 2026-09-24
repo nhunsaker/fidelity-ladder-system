@@ -21,6 +21,10 @@ CLIMBING, PARKED, DOCKED, NEEDS_HUMAN, AWAIT_PICK = (
 # being worked" from "reconstructed from a trace, about to resume" — never silently relabeled
 # back to CLIMBING until an actual climb call runs again.
 RESUMING = "resuming"
+# Harness PoC (2026-09-10): a rung whose dial is human-picks but whose artifact is not a pick-of-N
+# (rung 3 prototype, rung 4 build) parks here after its verifier passes; `/approve` resumes, any
+# feedback text re-runs the rung. Distinct from AWAIT_PICK (choose one of N) and AWAIT_SIGNOFF (rung 5).
+AWAIT_APPROVE = "await-approve"
 
 
 @dataclass
@@ -36,11 +40,25 @@ class Expedition:
     wireframes: list[str] = field(default_factory=list)   # rung 2
     picked_wireframe: int | None = None
     reason: str | None = None          # dock/park/needs-human reason
+    # WHO ended it, when it is parked: "human" if a person pressed Stop, "failure" if a rung broke.
+    # Both are PARKED and until now the only difference was prose in `reason`. It matters on the
+    # surface: a run a person stopped must not offer to start itself again, and a run that broke
+    # must. Sniffing the reason string for "killed by" would work until someone rewords it.
+    parked_by: str = ""
     calls: list[Call] = field(default_factory=list)
 
     @property
     def spent_usd(self) -> float:
         return round(sum(c.usd for c in self.calls), 4)
+
+    @property
+    def normalized_usd(self) -> float:
+        """What the work would have cost at list price.
+
+        On the subscription lane `spent_usd` is genuinely zero, so a surface that shows only
+        metered dollars reports $0.00 for every run however large — worse than showing nothing,
+        because it reads as a measurement rather than an absence."""
+        return round(sum(getattr(c, "normalized_usd", 0.0) or 0.0 for c in self.calls), 4)
 
     def add(self, calls: list[Call]) -> None:
         self.calls.extend(calls)

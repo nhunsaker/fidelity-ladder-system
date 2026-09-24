@@ -24,12 +24,12 @@ ANCHOR_PATH = Path(__file__).resolve().parents[2] / "ANCHOR.md"
 
 
 class OkDeployer:
-    def deploy(self, env, ref):
+    def deploy(self, env, ref, artifact=None):
         return True
 
 
 class FailDeployer:
-    def deploy(self, env, ref):
+    def deploy(self, env, ref, artifact=None):
         return False
 
 
@@ -137,12 +137,14 @@ def test_enforce_reviewability_refuses_blank_walkthrough():
         enforce_reviewability(pkg, line_budget=400)
 
 
-def test_enforce_reviewability_refuses_over_line_budget():
-    import pytest
+def test_a_big_diff_is_no_longer_refused_here():
+    """THIS USED TO REFUSE. Founder's rule, 2026-09-16: size is told to a person, never a reason
+    to throw away finished, tested work. The only two size refusals the batch produced were a
+    stale-base bug counting 1,450 lines the builds had not written, and the thirteen that passed
+    had visibly sized themselves to land at 397-400 — the budget was shaping work, not catching
+    it. The measure survives as a note on the pull request (`claude_code_builder.size_notes`)."""
     huge_diff = "\n".join(f"+line {i}" for i in range(500))
-    pkg = _pkg(diff=huge_diff)
-    with pytest.raises(ReviewabilityRefused, match="400"):
-        enforce_reviewability(pkg, line_budget=400)
+    enforce_reviewability(_pkg(diff=huge_diff), line_budget=400)   # does not raise
 
 
 def test_enforce_reviewability_counts_only_changed_lines_not_headers():
@@ -157,7 +159,7 @@ def test_ship_to_stage_reviewed_parks_on_refusal_never_deploys(tmp_path):
     fs = FlagStore(flags_path)
 
     class ExplodingDeployer:
-        def deploy(self, env, ref):
+        def deploy(self, env, ref, artifact=None):
             raise AssertionError("deploy must not be called when reviewability is refused")
 
     r = ship_to_stage_reviewed(_pkg(walkthrough_url=None), 400, "cmd-k", "abc123", fs,
@@ -187,3 +189,28 @@ def test_line_budget_zero_means_no_budget_enforced_walkthrough_still_required():
     enforce_reviewability(_pkg(diff=huge_diff), line_budget=0)   # no raise: budget n/a
     with pytest.raises(ReviewabilityRefused):
         enforce_reviewability(_pkg(diff=huge_diff, walkthrough_url=""), line_budget=0)
+
+
+def test_reviewability_leaves_a_five_thousand_line_diff_alone():
+    """FOUNDER'S RULE, 2026-09-16: size is told to a person, never a reason to throw away
+    finished, tested work. The only two size refusals the batch produced were a stale-base bug
+    counting 1,450 lines the builds had not written; the thirteen that passed had visibly sized
+    themselves to land at 397-400. The measure stays on the pull request as a note."""
+    from fls.rung4 import PRPackage
+    from fls.rung5 import enforce_reviewability
+    huge = "\n".join(f"+line {i}" for i in range(5000))
+    pkg = PRPackage(diff=huge, test_output="ok", eval_score="n/a", corner_cuts=[],
+                    walkthrough_url="https://preview.example/9")
+    enforce_reviewability(pkg, 400)      # does not raise
+
+
+def test_reviewability_still_refuses_a_package_with_no_walkthrough():
+    """The check that remains is about whether a reviewer can ORIENT, not how much there is."""
+    import pytest
+
+    from fls.rung4 import PRPackage
+    from fls.rung5 import ReviewabilityRefused, enforce_reviewability
+    pkg = PRPackage(diff="+x", test_output="ok", eval_score="n/a", corner_cuts=[],
+                    walkthrough_url="")
+    with pytest.raises(ReviewabilityRefused, match="walkthrough"):
+        enforce_reviewability(pkg, 400)

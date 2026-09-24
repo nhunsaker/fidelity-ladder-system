@@ -53,7 +53,7 @@ idea_sources:
       guardrails_into_prompt: true      # non-negotiables shape ideation, not just the gate
       cost_envelope_usd: 5.00           # per feeder run
       volume_cap: 5                     # top-N ideas per run
-      cadence: "manual | nightly"
+      cadence: manual                   # manual | nightly — this is a VALUE, not the menu
       model_tier: economy               # azure-openai mini/nano for ideation
       context_cap_tokens: 30000         # what the workspace checkout may feed the prompt
 

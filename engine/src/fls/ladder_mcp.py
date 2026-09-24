@@ -99,11 +99,11 @@ def build_server(root: str | Path = ROOT) -> FastMCP:
         the run's shadow economics. If the skill-server is unreachable it fails closed with reason.
         """
         from fls.feeder import ListSink, run_feeder
-        from fls.llm import SkillServerBuilder, SkillServerError
+        from fls.llm import SkillServerError, make_builder
         anchor_path = root / "ANCHOR.md"
         anchor = Anchor.load(anchor_path)
         anchor_text = anchor_path.read_text(encoding="utf-8")
-        brainstorm = SkillServerBuilder(shadow_model=anchor.builder.shadow_model)
+        brainstorm = make_builder(anchor)
         if not brainstorm.available():
             return {"triggered": False, "reason": "skill-server key unavailable (fail-closed)",
                     "topic": topic}

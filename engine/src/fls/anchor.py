@@ -94,6 +94,25 @@ class CouncilConfig(BaseModel):
 class Adjudicator(BaseModel):
     kind: str = "single-llm"    # single-llm (v1, default) | council (V6 pluggable adjudicators)
     model: str
+    # How high the admission gate sets its bar. POLICY, so it is declared here rather than
+    # compiled into the prompt: an instance whose job is to show the ladder run wants a
+    # different bar than one guarding a production backlog, and neither should need a code
+    # change to get it.
+    #
+    #   strict      (default) today's behaviour, unchanged. An idea whose scope is too
+    #               ambiguous to place stops at the gate for a person.
+    #   permissive  ambiguity is not a reason to stop. Only the checks that protect the
+    #               vessel still bite: an altitude outside `altitude_allowed`, and an idea
+    #               the gate judges does not trace to the ANCHOR or violates a
+    #               non-negotiable. Everything else is admitted and its scope is resolved at
+    #               the spec rung, which is where scope is supposed to be resolved.
+    #
+    # What `permissive` deliberately does NOT do is admit on adjudicator FAILURE. An
+    # unparseable or schema-invalid reply still parks (see `adjudicate`). The distinction is
+    # the whole point: a gate that judged an idea ambiguous has done its job, and a gate that
+    # could not answer has not. Collapsing the two would make a dead adjudicator look like a
+    # generous one.
+    bar: Literal["strict", "permissive"] = "strict"
     cost: AdjudicatorCost
     output_contract: list[str]
     council: CouncilConfig = Field(default_factory=CouncilConfig)  # only read when kind == council
@@ -109,11 +128,27 @@ class Adjudicator(BaseModel):
 class BuilderConfig(BaseModel):
     """P7 — how builder work is fulfilled. Default keeps the historical behaviour (metered
     Anthropic API), so an ANCHOR without a `builder:` block parses and behaves as before."""
-    backend: str = "api"                 # api | skill-server
+    backend: str = "api"                 # api | skill-server | claude-code (agentic CLI session, subscription lane)
     shadow_model: str = "claude-haiku-4-5-20251001"  # list-price anchor for the subscription lane
     fallback: str = "none"               # api | none
     fallback_budget_usd: float = 0.0     # hard ceiling on fallback spend per run
     fallback_pin: str = "per-run"        # per-run = once fallen back, stay fallen back
+
+
+class WorkerRungCaps(BaseModel):
+    """Harness PoC — the budget of an AGENTIC builder is turns + wall clock, not output tokens."""
+    max_turns: int = 30
+    wall_clock_s: int = 600
+
+
+class WorkerConfig(BaseModel):
+    """Optional `worker:` block: per-rung caps for the Claude Code worker (keys "2", "3", "4").
+    Absent -> defaults; an ANCHOR without it parses identically to before."""
+    rungs: dict[str, WorkerRungCaps] = Field(default_factory=dict)
+    model: str | None = None      # CLI --model override; None = the CLI's default
+
+    def caps(self, rung: int) -> WorkerRungCaps:
+        return self.rungs.get(str(rung), WorkerRungCaps())
 
 
 class Funnel(BaseModel):
@@ -203,6 +238,29 @@ class EffectiveGovernance(BaseModel):
     est_usd_by_rung: dict[str, float] = Field(default_factory=dict)
 
 
+class Suggestion(BaseModel):
+    """One request a visitor can take instead of inventing their own.
+
+    The two fields are the two boxes on the request card, verbatim: `intent` is THE CHANGE and
+    `success` is HOW YOU WOULD KNOW IT WORKED. Written in a visitor's voice, because that is who
+    reads them — and kept HERE rather than in the page for the same reason every other visitor
+    phrase lives server-side: a phrase written in the client is a phrase nothing tests and no
+    leak-guard sees.
+    """
+    intent: str
+    success: str = ""
+
+
+class DemoConfig(BaseModel):
+    """The public demo's own policy. Instance content, PR-reviewed like every other ANCHOR block.
+
+    `suggestions` is a QUEUE, not a rotation: the surface offers the first one nobody has filed
+    yet, so an idea leaves the list by being used rather than by anyone editing it. Order here is
+    the order offered.
+    """
+    suggestions: list[Suggestion] = Field(default_factory=list)
+
+
 class Vessel(BaseModel):
     """V3 — a context pack sitting between the north star and an expedition (Ng's concrete cut:
     NOT a per-vessel-dials layer). It names the surface being worked (team/app/site/sprint/topic)
@@ -222,6 +280,10 @@ class Vessel(BaseModel):
     audit_scope: list[str] = Field(default_factory=list)   # V4 — path globs an audit is confined to;
     # purely additive — a vessel without it parses identically (see effective_audit_scope)
     governance: VesselGovernance | None = None   # V6 #3 — purely additive; see VesselGovernance
+    # Path globs whose changes MERGE INTO STATE, not just code: a schema migration applies on
+    # deploy whatever the feature flag says, and turning the flag off afterwards does not undo it.
+    # Purely additive; empty means the engine's defaults (rung4.DEFAULT_MIGRATION_GLOBS) apply.
+    migration_paths: list[str] = Field(default_factory=list)
 
     def effective_audit_scope(self) -> list[str]:
         """Effective audit scope: the vessel's own `audit_scope` when set, else its `paths`
@@ -231,21 +293,50 @@ class Vessel(BaseModel):
         return self.paths
 
 
+class IdentityPolicy(BaseModel):
+    """Which visitor-facing surfaces stay reachable without an operator session.
+
+    This is ANCHOR policy rather than an engine constant because the answer is genuinely
+    per-instance: a private harness may want everything behind the login, while a public demo
+    instance needs its shareable artifact links to keep working for people who will never have
+    an account.
+
+    It is an enumerated vocabulary, not a list of paths, and that is the whole point. A
+    free-text `FLS_PUBLIC_PATHS=/preview,/wireframs` opens nothing and reports nothing — the
+    typo just silently fails to match, and the operator believes a surface is public when it is
+    not (or, with the error the other way round, that it is private when it is open). A typo in
+    a Literal fails ANCHOR validation loudly, at load, with the valid values in the message.
+
+    The default is every surface public, which is exactly today's behaviour — turning identity
+    on must not silently break a link someone already shared.
+    """
+    public_surfaces: list[Literal["demo", "preview", "wireframes"]] = Field(
+        default_factory=lambda: ["demo", "preview", "wireframes"])
+
+
 class Anchor(BaseModel):
     version: int
     mode: str
     adjudicator: Adjudicator
     builder: BuilderConfig = Field(default_factory=BuilderConfig)
+    worker: WorkerConfig = Field(default_factory=WorkerConfig)   # harness PoC agentic caps (optional)
     idea_sources: list[dict]
     funnel: Funnel
     rungs: dict[str, RungPolicy]
     budgets: Budgets
     autonomy_demote: DemoteTrigger
     altitude_allowed: list[str] = Field(min_length=1)
+    # What the DEMO offers a visitor who has not thought of a request yet. Purely additive: an
+    # ANCHOR with no `demo:` block parses identically, and the surface simply suggests nothing.
+    demo: DemoConfig = Field(default_factory=lambda: DemoConfig())
     vessels: list[Vessel] = Field(default_factory=list)   # V3 context packs (empty = slim mode)
     default_vessel: str | None = None                     # which vessel an expedition inherits by default
     goal: str | None = None    # V4 — top-level goal; an ANCHOR without it parses identically
     lenses: list[dict] = Field(default_factory=list)      # P2a — declared lens instances (kind + params); empty = no lenses configured
+    # V-login — operator-identity POLICY (which surfaces stay public). The KIND and every secret
+    # live in env, per the work-split rule: policy is PR-reviewed, identity is configuration.
+    # Additive: an ANCHOR with no `identity:` block parses identically to before.
+    identity: IdentityPolicy = Field(default_factory=IdentityPolicy)
 
     @classmethod
     def load(cls, path: str | Path) -> Anchor:

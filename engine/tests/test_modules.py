@@ -26,9 +26,14 @@ def _anchor() -> Anchor:
 
 
 # ── describe(): shapes + booleans-only ────────────────────────────────────────
-def test_describe_shapes_all_six_seams():
+def test_describe_shapes_all_nine_seams():
     slots = modules.describe(_anchor())
-    assert set(slots) == {"auth", "ideas", "lenses", "sources", "workers", "environment"}
+    # NINE since `deploy` and `design` landed. This assertion is the contract: a new slot that
+    # forgets to appear in `describe()` never reaches /system or the admin's Modules card, and
+    # an operator would be looking at a wiring summary that quietly omits one of its seams —
+    # which is exactly what happened to `lenses` and `environment` before the Modules rewrite.
+    assert set(slots) == {"auth", "identity", "ideas", "lenses", "sources", "workers",
+                          "environment", "deploy", "design"}
     # ideas is a LIST (manual door + feeder); lenses/environment are LISTs too (environment ships
     # one built-in, `worktree`); the other seams are single status dicts
     assert isinstance(slots["ideas"], list)
@@ -105,7 +110,9 @@ def test_describe_never_leaks_secret_values(monkeypatch):
     # but presence booleans flipped true, and the (non-secret) repo names surfaced
     slots = modules.describe(_anchor())
     assert slots["auth"]["configured"] is True
-    assert slots["sources"]["detail"] == {"prod_repo": "acme/widgets", "dev_repo": "acme/widgets-dev"}
+    assert slots["sources"]["detail"] == {"prod_repo": "acme/widgets",
+                                         "dev_repo": "acme/widgets-dev",
+                                         "vessel_repo": None}
     assert slots["sources"]["available"] is True
 
 
@@ -120,7 +127,8 @@ def test_describe_fail_closed_when_unconfigured(monkeypatch):
     slots = modules.describe(_anchor())
     assert slots["auth"]["configured"] is False and slots["auth"]["available"] is False
     assert slots["sources"]["configured"] is False
-    assert slots["sources"]["detail"] == {"prod_repo": None, "dev_repo": None}
+    assert slots["sources"]["detail"] == {"prod_repo": None, "dev_repo": None,
+                                         "vessel_repo": None}
 
 
 # ── GET /system ───────────────────────────────────────────────────────────────
@@ -132,7 +140,9 @@ def test_system_endpoint(tmp_path):
     assert r.status_code == 200
     data = r.json()
     assert data["anchor_version"] == _anchor().version
-    assert set(data["slots"]) == {"auth", "ideas", "lenses", "sources", "workers", "environment"}
+    assert set(data["slots"]) == {"auth", "identity", "ideas", "lenses", "sources", "workers",
+                                  "deploy", "design",
+                                  "environment"}
     assert isinstance(data["app"], bool)
 
 

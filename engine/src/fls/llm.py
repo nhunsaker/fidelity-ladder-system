@@ -267,6 +267,18 @@ class FallbackBuilder:
         self._pinned_to_fallback = False
         self._fallback_spent = 0.0
 
+    def available(self) -> bool:
+        """Either lane can carry the work, so either lane makes this builder available.
+
+        Every other builder answers this, and `make_builder` can return THIS one — so a caller
+        that probed before working (`/feeder/run`, the workers seam) hit an AttributeError on a
+        perfectly ordinary configuration. Whether a fallback would actually be permitted to fire
+        is `complete`'s business: it is budget- and authorization-gated there, and duplicating
+        that judgement here would be a second place for it to drift."""
+        if self.primary.available():
+            return True
+        return self.fallback is not None and self.fallback.available()
+
     def complete(self, prompt: str, max_tokens: int = 1024, system: str | None = None) -> tuple[str, Call]:
         if not self._pinned_to_fallback:
             try:
@@ -288,6 +300,13 @@ class FallbackBuilder:
         return text, call
 
 
+# The builder backends this factory actually dispatches on. Exported so that nothing has to keep
+# its own copy of the list: the Modules screen used to hold a hardcoded `api · skill-server`, so a
+# perfectly valid `claude-code` instance was told its ANCHOR had a spelling mistake — on the same
+# card that said the builder was reachable, while that builder was mid-way through a rung-4 build.
+BUILDER_BACKENDS = ("api", "claude-code", "skill-server")
+
+
 def make_builder(anchor, guard: BudgetGuard | None = None):
     """Factory: build the right builder from ANCHOR's `builder` block (P7).
 
@@ -298,6 +317,17 @@ def make_builder(anchor, guard: BudgetGuard | None = None):
     cfg = anchor.builder
     if cfg.backend == "api":
         return ClaudeBuilder(guard=guard)
+    if cfg.backend == "claude-code":
+        # harness PoC: an agentic CLI session (turns + wall clock budget from anchor.worker).
+        # The worker constructs per-rung sessions itself (cwd/tools differ per rung); this
+        # default is the generic lane for callers that only know `builder.complete`.
+        from fls.claude_code import ClaudeCodeBuilder, ClaudeCodeSession
+        caps = anchor.worker.caps(0)
+        root = os.environ.get("FLS_WORKER_ROOT", ".")
+        return ClaudeCodeBuilder(ClaudeCodeSession(
+            cwd=root, max_turns=caps.max_turns, timeout_s=caps.wall_clock_s,
+            model=anchor.worker.model, shadow_model=cfg.shadow_model,
+            mcp_config=os.environ.get("FLS_MCP_CONFIG") or None, guard=guard))
     primary = SkillServerBuilder(shadow_model=cfg.shadow_model, guard=guard)
     if cfg.fallback == "api":
         fb = ClaudeBuilder(guard=guard)

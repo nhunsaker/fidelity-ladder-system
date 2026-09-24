@@ -1,15 +1,16 @@
 [project]
 name = "fidelity-ladder"
-version = "0.9.0"
+version = "0.9.1"
 description = "The Fidelity Ladder — progressive-fidelity governance for agentic work (importable core). Rungs-as-data + one-ANCHOR policy + tighten-only cascade + calibration ledger + earned autonomy."
 readme = "README.md"
-license = "MIT"
+authors = [{ name = "Nathan O'Brien" }]
+license = "Apache-2.0"
 requires-python = ">=3.11"
 keywords = ["agents", "ai", "governance", "fidelity", "progressive-fidelity", "ladder", "spec-driven"]
 classifiers = [
   "Development Status :: 4 - Beta",
   "Intended Audience :: Developers",
-  "License :: OSI Approved :: MIT License",
+  "License :: OSI Approved :: Apache Software License",
   "Programming Language :: Python :: 3.11",
   "Topic :: Software Development :: Libraries :: Application Frameworks",
 ]
@@ -30,6 +31,7 @@ fls-bench = "fls.bench:main"   # the scoreboard CLI (zero-spend oracle run by de
 dev = ["pytest>=8.3", "ruff>=0.7"]
 harness = ["fastapi>=0.115", "uvicorn[standard]>=0.32", "httpx>=0.27"]   # the reference FastAPI harness + GitHub surface
 mcp = ["fastmcp>=2.0"]   # P5 — ladder-mcp
+orchestration = ["temporalio>=1.7"]   # harness PoC — Temporal workflow per expedition (fls.orchestration)
 
 [project.urls]
 Homepage = "https://github.com/nhunsaker/fidelity-ladder-system"

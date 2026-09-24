@@ -25,7 +25,7 @@ from dataclasses import asdict
 
 from fls.adjudicator import Idea
 from fls.anchor import Anchor, Dial
-from fls.expedition import AWAIT_PICK, CLIMBING, RESUMING, Expedition
+from fls.expedition import AWAIT_APPROVE, AWAIT_PICK, CLIMBING, RESUMING, Expedition
 from fls.funnel import RUNG_DEMO, RUNG_FLAG, RUNG_MVP, RUNG_WIRE
 from fls.ledger import TraceLog, Transition
 from fls.llm import Call
@@ -91,6 +91,17 @@ def advance_expedition(e: Expedition, picked_wireframe: str, anchor: Anchor,
             e.rung = RUNG_DEMO
             dispatch_middleware("after_rung", expedition=e, rung=RUNG_DEMO)
             _checkpoint(e, trace, "rung-advance")
+            # Harness PoC: a profile may TIGHTEN rung 3 to human-picks (the founder's "only proceeds
+            # when approved with no revisions"). Then a passing walkthrough parks the expedition at
+            # AWAIT_APPROVE; the caller re-enters advance_expedition after `/approve` (e.rung is
+            # already RUNG_DEMO, so this block is skipped and rung 4 runs). Feedback text re-runs
+            # rung 3 by resetting e.rung below RUNG_DEMO before re-entry. Resume needs no flag:
+            # the gate only fires in the branch that JUST ran the rung.
+            if profile.rung(RUNG_DEMO).dial in (Dial.human_picks, Dial.propose_only):
+                e.status = AWAIT_APPROVE
+                e.reason = "prototype ready; awaiting approval with no revisions"
+                _checkpoint(e, trace, "await-approve")
+                return e
         # else: resumed at/past rung 3 already — fall through without redoing the work/spend
     else:
         e.status = AWAIT_PICK  # demo lane only; parks after wireframe (shouldn't reach here)
@@ -118,20 +129,33 @@ def advance_expedition(e: Expedition, picked_wireframe: str, anchor: Anchor,
             e.rung = RUNG_MVP
             dispatch_middleware("after_rung", expedition=e, rung=RUNG_MVP)
             _checkpoint(e, trace, "rung-advance")
+            if profile.rung(RUNG_MVP).dial in (Dial.human_picks, Dial.propose_only):
+                e.status = AWAIT_APPROVE
+                e.reason = "build passed its own acceptance tests; awaiting approval before the flagged PR"
+                _checkpoint(e, trace, "await-approve")
+                return e
         # else: resumed at/past rung 4 already — fall through without redoing the work/spend
 
-        # ---- rung 5: hard gate — draft PR behind flag, never auto-ships ----
-        # V6 #2: rung 5 is governed as two sub-rungs (see fls.rung5) — 5a (staged behind the
-        # flag, via ship_to_stage) then 5b (prod-promoted, via promote_to_prod). This climb
-        # only ever parks an expedition at the gate entering 5a; a human/caller drives the
-        # actual 5a->5b ship flow afterward (never auto-ships past this point).
+        # ---- rung 5: draft PR behind a flag, never merged, never auto-shipped to PROD ----
+        # V6 #2: rung 5 is governed as two sub-rungs (see fls.rung5) — 5a (staged behind the flag)
+        # then 5b (prod-promoted, via promote_to_prod). This in-memory climb parks at the gate; the
+        # LIVE runner (fls.orchestration.live.LiveRunner.ship) is what actually opens the PR and,
+        # when the 5a dial permits and a deploy target exists, stages it for review.
+        #
+        # The human gate sits between 5a and 5b, not before 5a (founder, 2026-09-11). Staging is
+        # the artifact a review is OF, so gating it behind the review inverts the thing. This
+        # reason string said "awaiting human sign-off to stage (5a)" and was describing the old
+        # position of the gate — a claim about who owns what, which is exactly the class of
+        # statement this system may not get wrong.
         if e.target_rung >= RUNG_FLAG:
             e.rung, e.status = RUNG_FLAG, AWAIT_SIGNOFF
             policy_5a = anchor.rung5_policy("5a")
+            auto_5a = policy_5a.dial in (Dial.auto_advance, Dial.autonomous)
             e.reason = (
                 f"draft PR behind feature flag (rung 5a dial={policy_5a.dial.value}); "
-                "awaiting human sign-off to stage (5a), then Environment-gated prod "
-                "promotion (5b)"
+                + ("staged for review where a deploy target is configured; "
+                   if auto_5a else "awaiting a human to stage it (5a); ")
+                + "prod promotion (5b) needs a human either way, and nothing merges"
             )
         else:
             e.status = AWAIT_SIGNOFF

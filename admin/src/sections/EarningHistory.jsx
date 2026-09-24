@@ -19,73 +19,31 @@
 // This panel consumes an ARRAY of MiningReport, oldest-first, append-only (one per mining run
 // over #7's calibration-ledger persistence).
 //
-// *** WIRING TODO for the lead (Lane B/#7 not yet landed in this worktree) ***
-// Expected live endpoint: GET /mining-history -> MiningReport[] (mirrors the /calibration,
-// /anchor, /system pattern in api.js's loadAll — same BASE, same live-first/fixtures-fallback
-// shape). Until #7 emits `mining-history.jsonl` + the harness serves it, this component falls
-// back to MOCK_MINING_HISTORY below (clearly flagged in the UI via the same 'source' badge
-// convention api.js already uses for fixtures). To wire it for real: either (a) add
-// `miningHistory: () => j('/mining-history')` to the `api` object in api.js and swap the
-// fetchMiningHistory() body below to call it, or (b) fold it into loadAll() as a sixth
-// Promise.all leg (`data.miningHistory`) and drop this file's local fetch entirely.
+// WIRED 2026-09-11. GET /mining-history has existed since v0.6; this file called it with a bare
+// `fetch` carrying no session cookie, so on a guarded instance every load 401'd and fell back to
+// a MOCK trail — while the badge blamed an endpoint that "had not landed". An operator reading
+// invented agreement rates before loosening a dial is the worst failure this screen can have, so
+// the mock is gone rather than relabelled: with no history it shows none and says why.
 import React, { useEffect, useState } from 'react'
 import { api } from '../api.js'
 
 const TREND_LABEL = { improving: '↑ improving', flat: '→ flat', declining: '↓ declining' }
 const TREND_CLASS = { improving: 'rec-eligible-to-loosen', flat: '', declining: 'rec-tighten' }
 
-// Mock snapshots — same shape live data will have. Anchor-level, 4 rungs, 5 snapshots trending
-// toward an earned loosening at 3-demo (the same rung the point-in-time Calibration panel
-// already flags "eligible-to-loosen" in fixtures.json, so the two panels agree on the story).
-const MOCK_MINING_HISTORY = [
-  { computed_at: '2026-08-01T09:00:00Z',
-    per_rung: [
-      { rung: '0-intent', samples: 10, agreement_rate: 0.82, human_override_rate: 0.18, drift_trend: 'flat' },
-      { rung: '1-spec', samples: 8, agreement_rate: 0.61, human_override_rate: 0.39, drift_trend: 'declining' },
-      { rung: '2-wireframe', samples: 6, agreement_rate: 0.85, human_override_rate: 0.15, drift_trend: 'flat' },
-      { rung: '3-demo', samples: 3, agreement_rate: 0.88, human_override_rate: 0.12, drift_trend: 'improving' },
-    ], mismatches: [], recommendation: 'hold' },
-  { computed_at: '2026-08-04T09:00:00Z',
-    per_rung: [
-      { rung: '0-intent', samples: 15, agreement_rate: 0.84, human_override_rate: 0.16, drift_trend: 'flat' },
-      { rung: '1-spec', samples: 12, agreement_rate: 0.65, human_override_rate: 0.35, drift_trend: 'declining' },
-      { rung: '2-wireframe', samples: 10, agreement_rate: 0.89, human_override_rate: 0.11, drift_trend: 'improving' },
-      { rung: '3-demo', samples: 4, agreement_rate: 0.91, human_override_rate: 0.09, drift_trend: 'improving' },
-    ], mismatches: [], recommendation: 'hold' },
-  { computed_at: '2026-08-08T09:00:00Z',
-    per_rung: [
-      { rung: '0-intent', samples: 19, agreement_rate: 0.87, human_override_rate: 0.13, drift_trend: 'improving' },
-      { rung: '1-spec', samples: 15, agreement_rate: 0.68, human_override_rate: 0.32, drift_trend: 'flat' },
-      { rung: '2-wireframe', samples: 12, agreement_rate: 0.91, human_override_rate: 0.09, drift_trend: 'flat' },
-      { rung: '3-demo', samples: 5, agreement_rate: 0.94, human_override_rate: 0.06, drift_trend: 'improving' },
-    ], mismatches: [], recommendation: 'hold' },
-  { computed_at: '2026-08-12T09:00:00Z',
-    per_rung: [
-      { rung: '0-intent', samples: 22, agreement_rate: 0.88, human_override_rate: 0.12, drift_trend: 'flat' },
-      { rung: '1-spec', samples: 17, agreement_rate: 0.71, human_override_rate: 0.29, drift_trend: 'improving' },
-      { rung: '2-wireframe', samples: 14, agreement_rate: 0.92, human_override_rate: 0.08, drift_trend: 'flat' },
-      { rung: '3-demo', samples: 6, agreement_rate: 0.96, human_override_rate: 0.04, drift_trend: 'improving' },
-    ], mismatches: [], recommendation: 'hold' },
-  { computed_at: '2026-08-16T09:00:00Z',
-    per_rung: [
-      { rung: '0-intent', samples: 24, agreement_rate: 0.88, human_override_rate: 0.12, drift_trend: 'flat' },
-      { rung: '1-spec', samples: 18, agreement_rate: 0.72, human_override_rate: 0.28, drift_trend: 'improving' },
-      { rung: '2-wireframe', samples: 15, agreement_rate: 0.93, human_override_rate: 0.07, drift_trend: 'flat' },
-      { rung: '3-demo', samples: 6, agreement_rate: 0.97, human_override_rate: 0.03, drift_trend: 'improving' },
-    ], mismatches: [], recommendation: 'eligible-to-loosen: 3-demo' },
-]
 
 async function fetchMiningHistory(vesselName) {
   try {
-    const qs = vesselName ? `?vessel=${encodeURIComponent(vesselName)}` : ''
-    const r = await fetch(`${api.base}/mining-history${qs}`)
-    if (!r.ok) throw new Error(String(r.status))
-    const rows = await r.json()
-    return { source: 'live', rows }
-  } catch {
-    // vessel-filtered mock data isn't modeled — the mock trail is anchor-level only, matching
-    // what a real /mining-history?vessel=... 404/offline fallback would honestly show.
-    return { source: 'mock', rows: MOCK_MINING_HISTORY }
+    return { source: 'live', rows: await api.miningHistory(vesselName) }
+  } catch (e) {
+    // A bare `fetch` used to sit here, without `credentials: 'include'`. On a guarded instance it
+    // 401'd on every load, so the trail an operator reads before LOOSENING A DIAL was invented —
+    // and the badge blamed an endpoint that "had not landed", which has been false since v0.6.
+    // A source badge naming the wrong cause is worse than none: it sends the reader to fix the
+    // wrong thing. `reason` carries what actually happened.
+    const reason = e?.name === 'NotSignedIn' || e?.status === 401
+      ? 'not signed in to the harness — sign in and reload'
+      : (e?.message || 'the harness could not be reached')
+    return { source: 'unavailable', reason, rows: [] }
   }
 }
 
@@ -93,9 +51,7 @@ async function fetchMiningHistory(vesselName) {
  *  no dropdown, section renders anchor-level only (back-compat, matches v0.6 exactly). */
 async function fetchVesselNames() {
   try {
-    const r = await fetch(`${api.base}/anchor`)
-    if (!r.ok) throw new Error(String(r.status))
-    const a = await r.json()
+    const a = await api.anchor()
     return (a.vessels || []).map((v) => v.name).filter(Boolean)
   } catch {
     return []
@@ -140,7 +96,10 @@ function byRung(reports) {
   }))
 }
 
-export default function EarningHistory() {
+/** @param {{embedded?: boolean}} props — `embedded` drops the page wrapper and the page title so
+ * this can sit inside Autonomy as a section rather than being its own route. It used to be one:
+ * "Earning history" in the Anchor group, away from the dial recommendation it is the evidence for. */
+export default function EarningHistory({ embedded = false }) {
   const [state, setState] = useState(null)
   const [vessels, setVessels] = useState([])
   const [vessel, setVessel] = useState('')
@@ -148,24 +107,46 @@ export default function EarningHistory() {
   useEffect(() => { fetchVesselNames().then(setVessels) }, [])
   useEffect(() => { fetchMiningHistory(vessel || undefined).then(setState) }, [vessel])
 
-  if (!state) return <div className="pane"><p className="note">Loading the earning-history trail…</p></div>
+  const Wrap = ({ children }) => (
+    <div className={embedded ? 'pane-embed' : 'pane'}>{children}</div>
+  )
+  if (!state) return <Wrap><p className="note">Loading the earning-history trail…</p></Wrap>
 
   const trails = byRung(state.rows)
   const latest = state.rows[state.rows.length - 1]
 
   return (
-    <div className="pane">
-      <h2>Earning history · the track record behind a loosening</h2>
+    <Wrap>
+      {embedded
+        ? <h3 className="pane-sub">The track record behind a loosening</h3>
+        : <h2>Earning history · the track record behind a loosening</h2>}
       <p className="note">
-        Point-in-time agreement lives on <a href="#/anchor/autonomy">Autonomy</a>; this is the
-        trail across mining snapshots (item #7's calibration mining) that a human actually reads
-        before earning a rung a loosening.
+        {embedded
+          // The link used to point at Autonomy from a separate route. This IS Autonomy now, so a
+          // link here would send the reader to the page they are already on.
+          ? <>The table above is this moment; this is the trail across mining snapshots that a
+              human actually reads before earning a rung a loosening.</>
+          : <>Point-in-time agreement lives on <a href={`${import.meta.env.BASE_URL}anchor/autonomy`}>Autonomy</a>; this is the
+              trail across mining snapshots (item #7's calibration mining) that a human actually
+              reads before earning a rung a loosening.</>}
         {' '}
         <span className={`src-badge ${state.source === 'live' ? 'src-live' : 'src-fixtures'}`}
-              title={state.source === 'live' ? 'live from /mining-history' : 'mock data — /mining-history not wired yet'}>
-          {state.source === 'live' ? 'live' : 'mock · endpoint TODO'}
+              title={state.source === 'live'
+                ? 'live from /mining-history'
+                : `the trail could not be read: ${state.reason || 'unknown'}`}>
+          {state.source === 'live' ? 'live' : 'no history'}
         </span>
       </p>
+
+      {state.source !== 'live' && (
+        <div className="card card-pad" role="status">
+          <p className="note" style={{ margin: 0 }}>
+            <b>The trail could not be read, so none is shown.</b> {state.reason}.
+            {' '}Nothing is invented here — a dial is not loosened on evidence that could not be
+            fetched.
+          </p>
+        </div>
+      )}
 
       {vessels.length > 0 && (
         <p className="note">
@@ -236,6 +217,6 @@ export default function EarningHistory() {
           </tbody>
         </table>
       </div>
-    </div>
+    </Wrap>
   )
 }

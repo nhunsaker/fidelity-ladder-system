@@ -8,13 +8,11 @@
 // target_vessel is FLS-side (LensParams.target_vessel) — not part of that schema, but every
 // vessel this binds to must already be declared in this instance's ANCHOR (data.anchor.vessels).
 //
-// Edits are PRs, same rule as the ANCHOR console (Vessels.jsx / AnchorConsole.jsx) — this
-// screen builds + validates the payload, then proposes it. The harness has no panel-binding
-// endpoint yet (only /anchor/{validate,propose} for funnel/budgets/demote sections — see
-// engine/src/fls/anchor.py _SECTION_MAP); rather than block on an engine change, `api.panelPropose`
-// below calls the endpoint this UI expects and degrades honestly (never silently) when it 404s,
-// showing the exact JSON payload a human (or a follow-up engine PR) can apply. See the
-// TODO(backend) note near the bottom of this file.
+// Edits are PRs, same rule as the ANCHOR console. `POST /panels/propose` EXISTS (app.py) and is
+// proposal-only by design — it validates the binding and returns the reviewable change, never
+// writing to the ANCHOR itself. This file claimed for months that the route did not exist, in its
+// comments AND in the copy a user saw on failure; a screen that is wrong about itself spends
+// credibility it needs for everything else it says. Corrected 2026-09-11.
 import React, { useState } from 'react'
 import { api } from '../api.js'
 
@@ -80,13 +78,14 @@ export default function PanelAuthor({ data, toast }) {
       const r = await api.panelPropose(payload())
       setProposed({ ...r, stubbed: false })
       toast(r.pr_url ? `PR opened: ${r.pr_url}` : 'Panel binding staged (no outbound token yet)')
-    } catch {
-      // TODO(backend): /panels/propose does not exist yet — see api.js panelPropose and
-      // engine/src/fls/app.py anchor_propose (the pattern to mirror once a lens/panel section
-      // is added to _SECTION_MAP in anchor.py). Until then this degrades HONESTLY: nothing was
-      // saved, the exact payload is shown below for manual application or a follow-up PR.
-      setProposed({ stubbed: true, payload: payload() })
-      toast('No /panels save endpoint on the harness yet — payload staged below (nothing written)')
+    } catch (e) {
+      // The route exists; reaching this branch means the CALL failed — unreachable harness, or a
+      // session that is not signed in. Say which, rather than blaming the endpoint.
+      const why = e?.name === 'NotSignedIn'
+        ? 'not signed in to the harness'
+        : (e?.message || 'the harness could not be reached')
+      setProposed({ stubbed: true, why, payload: payload() })
+      toast(`Nothing was proposed — ${why}`)
     } finally {
       setSaving(false)
     }
@@ -97,7 +96,7 @@ export default function PanelAuthor({ data, toast }) {
       <div className="detail-head">
         <h2 style={{ margin: 0 }}>Panel author</h2>
         <span style={{ flex: 1 }} />
-        <a className="btn" href="#/anchor/vessels" style={{ textDecoration: 'none' }}>Vessels →</a>
+        <a className="btn" href={`${import.meta.env.BASE_URL}anchor/vessels`} style={{ textDecoration: 'none' }}>Vessels →</a>
       </div>
       <p className="note">Compose the persona panel a lens ideates with, then target the vessel it
         grounds against. A panel is either a <b>registry name</b> (a panel declared in the
@@ -203,14 +202,12 @@ export default function PanelAuthor({ data, toast }) {
         )}
         {proposed && (
           <div className={`verdict${proposed.stubbed ? ' bad-edge' : ''}`} style={{ marginTop: 10 }}>
-            <b>{proposed.stubbed ? 'No save endpoint yet — nothing written' : (proposed.pr_url ? 'PR opened' : 'Payload staged')}</b>
+            <b>{proposed.stubbed ? 'Nothing was proposed' : (proposed.pr_url ? 'PR opened' : 'Payload staged')}</b>
             {proposed.stubbed ? (
               <>
                 <div className="fexp" style={{ margin: '4px 0 6px' }}>
-                  The harness has no <code>/panels/propose</code> route yet (client stub in
-                  <code> api.js</code>; a follow-up engine PR wires a <code>panel</code>/<code>lenses</code>
-                  section into <code>anchor.py</code>'s console edit map). Apply this by hand or paste it
-                  into that follow-up PR:
+                  {proposed.why} — so the binding was not sent. The route itself is fine; this is the
+                  exact payload it would have received, if you would rather apply it by hand:
                 </div>
                 <pre style={{ margin: 0, fontSize: 11.5, whiteSpace: 'pre-wrap' }}>{JSON.stringify(proposed.payload, null, 2)}</pre>
               </>

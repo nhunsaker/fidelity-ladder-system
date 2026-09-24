@@ -51,3 +51,21 @@ def test_demote_trigger_defined():
     a = Anchor.load(ANCHOR_PATH)
     assert 0 < a.autonomy_demote.agreement_threshold <= 1
     assert a.autonomy_demote.window > 0
+
+
+def test_the_demo_block_is_purely_additive(tmp_path):
+    """An ANCHOR with no `demo:` parses identically and the surface simply suggests nothing."""
+    from pathlib import Path as _P
+
+    from fls.anchor import Anchor
+    a = Anchor.load(_P(__file__).resolve().parents[2] / "ANCHOR.md")
+    assert a.demo.suggestions == []
+
+
+def test_suggestions_parse_with_and_without_a_success_line(tmp_path):
+    from fls.anchor import DemoConfig
+    d = DemoConfig(suggestions=[{"intent": "Show the blind schedule", "success": "I can see it"},
+                                {"intent": "Add a what-beats-what card"}])
+    assert [s.intent for s in d.suggestions] == ["Show the blind schedule",
+                                                 "Add a what-beats-what card"]
+    assert d.suggestions[1].success == ""
